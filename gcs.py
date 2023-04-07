@@ -1,14 +1,14 @@
 import sys
 from ctl import control
-from ctl.control import ConnectionType as ct
 
 
 def main():
     while True:
         try:
-            print('Connect to UAV fist.')
+            print('Connect to UAV first.')
             msg = input("> ")
-            ret = control.connect(ct.udp, msg)
+            vehicle = control.Vehicle()
+            ret = vehicle.connect(control.ConnectionType.udp, msg)
             if ret:
                 print(ret)
                 return 0
