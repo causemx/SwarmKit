@@ -1,27 +1,11 @@
 import sys
-from ctl import control
+from ctl.control import Core, Drone, ConnectionType
 
 
 def main():
-    while True:
-        try:
-            print('Connect to UAV first.')
-            msg = input("> ")
-            vehicle = control.Vehicle()
-            ret = vehicle.connect(control.ConnectionType.udp, msg)
-            if ret:
-                print(ret)
-                return 0
-        except ConnectionError:
-            print("connection error")
-            return 1
-        except KeyboardInterrupt:
-            print("\n shutdown")
-            return 1 
-                
-       
+    core = Core()
+    core.connect(ConnectionType.udp, "127.0.0.1")
+    d = Drone(core)
 
 if __name__ == "__main__":
-    error_code = main()
-    if error_code == 1:
-        sys.exit(1)
+    main()

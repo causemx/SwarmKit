@@ -1,7 +1,10 @@
-import argparse
-import time
-from enum import Enum
+import atexit
+import socket
 from threading import Thread
+import time
+import logging
+import math
+from enum import Enum
 from pymavlink import mavutil
 
 
@@ -14,32 +17,39 @@ class ConnectionType(Enum):
     udp = 2
 
 
-class Vehicle:
+class Core:
 
     def __init__(self) -> None:
+        self._logger = logging.getLogger(__name__)
         self.master = None
-        self.thread_in = None
+        self._alive = True
+        self._accept_input = True
+        
+        self.loop_listeners = []
+        self.message_listeners = []
+        
+        self.threadin = t = Thread(target=self.mav_thread_in)
+        #t.daemon = True
+
+        atexit.register(self.onexit)
 
     def connect(self, conn_type, host, port=14550, baud=921600, retry=3):
-        # _args = args.connect_info
         _retry = 0
         while True:
             try:
                 # master = mavutil.mavlink_connection('/dev/serial0', baud=921600)
                 # master = mavutil.mavlink_connection('udpin:{}:{}'.format(host, port))
                 if conn_type.value == 1:  # serial type
-                    self.master = master = mavutil.mavlink_connection(host, baud=baud)
+                    self.master = master = mavutil.mavlink_connection(
+                        host, baud=baud)
                 elif conn_type.value == 2:  # udp tpye
-                    self.master = master = mavutil.mavlink_connection('udpin:{}:{}'.format(host, port))
+                    self.master = master = mavutil.mavlink_connection(
+                        'udpin:{}:{}'.format(host, port))
                 else:
                     return 'unknown_connection_type'
 
                 hb = master.wait_heartbeat()
-                if hb:
-                    self.thread_in = Thread(target=handle_input, args=(master,))
-                    self.thread_in.join()
-                    self.thread_in.start()
-                return master
+                if hb: return master
             except ControlError:
                 print("retry...:{}".format(_retry))
                 _retry = _retry + 1
@@ -48,122 +58,90 @@ class Vehicle:
                     raise ConnectionError
                 time.sleep(0.3)
 
+    def onexit(self):
+        self._logger.info("onexit")
+        self._alive = False
+        self.stop_threads()
+    
 
-def handle_input(master):
-    while True:
-        msg = master.recv_match(type='HEARTBEAT', blocking=True)
-        mode = mavutil.mode_string_v10(msg)
-        ipt = input("{}> ".format(mode))
-        print(ipt)
-
-
-"""def parse(args):
-    parser = argparse.ArgumentParser()
-    subparser = parser.add_subparsers()
-
-    parser_arm = subparser.add_parser(
-        "arm", help="Arming/Disarm UAV throttle.")
-    # parser_arm.add_argument('--isarm', type=int, default=1, help="1: arm, 0: disarm.")
-    parser_arm.set_defaults(func=arm)
-
-    parser_takeoff = subparser.add_parser("takeoff",
-                                          help="Takeoff UAV to expect height.")
-    parser_takeoff.add_argument('height', type=int, default=1,
-                                help="Expect height for UAV takeoff.")
-    parser_takeoff.set_defaults(func=takeoff)
-
-    parser_setmode = subparser.add_parser("setmode", help="Set UAV mode.")
-    parser_setmode.add_argument(
-        "mode", type=str, help="Enter expected mode here.")
-    parser_setmode.set_defaults(func=set_mode)
-
-    parser_move = subparser.add_parser("move",
-                                       help="Make UAV moving [North/South, East/West, Down/Up] in local coord.")
-    parser_move.add_argument("movement", type=int, nargs='+',
-                             help="Move [east/west] [north/south] [down/up] for meters")
-    parser_move.set_defaults(func=move)
-
-    args = parser.parse_args(args)
-    args.func(args)
-
-
-def arm(args) -> None:
-    master.mav.command_long_send(master.target_system, master.target_component,
-                                 mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 0, args.isarm, 0, 0, 0, 0, 0, 0)
-
-    while True:
-        master.motors_armed_wait()
-        print('Ack!')
-        break
-
-
-def takeoff(args) -> None:
-    master.mav.command_long_send(master.target_system, master.target_component,
-                                 mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, 0, args.height)
-
-    _retry = 0
-    while True:
-        _retry = _retry + 1
-        # msg = master.recv_match(type='STATUSTEXT', blocking=True)
-        msg = master.recv_match(type='COMMAND_ACK', blocking=True, timeout=1)
-        if msg:
-            print(msg)
-            break
-        if _retry > 3:
-            print("Time out, can not recive ACK.")
-            break
-
-
-def mode(args) -> None:
-    while True:
-        msg = master.recv_match(type='HEARTBEAT', blocking=True)
-        mode = mavutil.mode_string_v10(msg)
-        print(mode)
-        break
-
-
-def set_mode(args) -> None:
-    if args.mode not in master.mode_mapping():
-        print('Unknown mode : {}'.format(args.mode))
-        print('Try:', list(master.mode_mapping().keys()))
-        pass  # in application could be sys.exit(1)
-
-        # Get mode ID
-    mode_id = master.mode_mapping()[args.mode]
-
-    master.mav.set_mode_send(master.target_system,
-                             mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, mode_id)
-
-    while True:
+    def mav_thread_in(self):
         try:
-            ack_msg = master.recv_match(
-                type='COMMAND_ACK', blocking=True, timeout=1)
-        except ControlError:
-            print("can not receive ack")
-            break
+            while self._alive:
+                # Loop listeners.
+                for fn in self.loop_listeners:
+                    fn(self)
 
-        time.sleep(0.3)
-        ack_msg = ack_msg.to_dict()
+                # Sleep
+                self.master.select(0.05)
 
-        # Continue waiting if the acknowledged command is not `set_mode`
-        if ack_msg['command'] != mavutil.mavlink.MAV_CMD_DO_SET_MODE:
-            continue
+                while self._accept_input:
+                    try:
+                        msg = self.master.recv_msg()
+                    except socket.error as error:
+                        # If connection reset (closed), stop polling.
+                        msg = None
+                    except mavutil.mavlink.MAVError as e:
+                        # Avoid
+                        #   invalid MAVLink prefix '73'
+                        #   invalid MAVLink prefix '13'
+                        self._logger.debug('mav recv error: %s' % str(e))
+                        msg = None
+                    except Exception:
+                        # Log any other unexpected exception
+                        self._logger.exception(
+                            'Exception while receiving message: ', exc_info=True)
+                        msg = None
+                    if not msg:
+                        break
 
-        # Print the ACK result !
-        print(mavutil.mavlink.enums['MAV_RESULT']
-              [ack_msg['result']].description)
-        break
+                    # Message listeners.
+                    for fn in self.message_listeners:
+                        try:
+                            fn(self, msg)
+                        except Exception:
+                            self._logger.exception(
+                                'Exception in message handler for %s' % msg.get_type(), exc_info=True
+                            )
+        except Exception:
+            self._logger.exception('Exception in MAVLink input loop')
+            self._alive = False
+            self.master.close()
+            return
+    
+    def start(self):
+        if not self.threadin.is_alive():
+            self.threadin.start()
+
+    def stop_threads(self):
+        if self.threadin is not None:
+            self.threadin.join
+            self.threadin = None
 
 
-def move(args) -> None:
-    master.mav.send(mavutil.mavlink.MAVLink_set_position_target_local_ned_message(
-        10, master.target_system, master.target_component,
-        mavutil.mavlink.MAV_FRAME_LOCAL_NED, int(0b010111111000),
-        args.movement[0], args.movement[1], args.movement[2],
-                    0, 0, 0, 0, 0, 0, 0, 0))
 
-    while True:
-        msg = master.recv_match(
-            type='LOCAL_POSITION_NED', blocking=True)
-        print(msg)
-        break"""
+class Drone:
+    def __init__(self, core) -> None:
+        self._logger = logging.getLogger(__name__)
+        self.core = core
+        self.master = core.master
+        self.core.start()
+        self._message_listeners = dict()
+
+    def on_message(self, name):
+        def decorator(fn):
+            if isinstance(name, list):
+                for n in name:
+                    self.add_message_listener(n, fn)
+            else:
+                self.add_message_listener(name, fn)
+
+        return decorator
+
+    def add_message_listener(self, name, fn):
+        name = str(name)
+        if name not in self._message_listeners:
+            self._message_listeners[name] = []
+        if fn not in self._message_listeners[name]:
+            self._message_listeners[name].append(fn)
+
+
