@@ -150,6 +150,7 @@ class Drone:
         self._autopilot_type = None  # PX4, ArduPilot, etc.
         self._vehicle_type = None  # quadcopter, plane, etc.
 
+        @self.on_message('HEARTBEAT')
         def hb_listener(self, name, m):
             # ignore groundstations
             if m.type == mavutil.mavlink.MAV_TYPE_GCS:
@@ -168,7 +169,16 @@ class Drone:
             self._system_status = m.system_status
             self.notify_attribute_listeners('system_status', self.system_status, cache=True)
 
-        self.add_message_listener('HEARTBEAT', hb_listener) 
+        #self.add_message_listener('HEARTBEAT', hb_listener) 
+
+    def on_message(self, name):
+        def decorator(func):
+            if isinstance(name, list):
+                for n in name:
+                    self.add_message_listener(n, func)
+            else:
+                self.add_message_listener(name, func)
+        return decorator
 
     def initialize(self, rate=4, heartbeat_timeout=30):
         self.core.start()
