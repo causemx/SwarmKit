@@ -8,5 +8,6 @@ def main():
     d = Drone(core)
     d.initialize()
 
+
 if __name__ == "__main__":
     main()

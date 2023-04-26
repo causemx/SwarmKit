@@ -8,11 +8,12 @@ import math
 #from dronekit import LocationGlobalRelative
 #from dronekit import mavutil
 import geopy
-from geopy.distance import vincenty
 import socket
 import threading
 import multiprocessing
 import os
+from ctl.control import Core, Drone
+from geopy.distance import vincenty
 
 # MAVLink Parameters to specify coordinate frame.
 # 1) MAV_FRAME_LOCAL_NED:
