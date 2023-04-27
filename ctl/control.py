@@ -1,5 +1,4 @@
 import atexit
-import queue
 import socket
 from threading import Thread
 import time
@@ -21,7 +20,7 @@ class ConnectionType(Enum):
     udp = 2
 
 
-class VehicleMode():
+class VehicleMode:
     def __init__(self, name) -> None:
         self.name = name
     
@@ -35,7 +34,7 @@ class VehicleMode():
         return self.name != other
     
 
-class HasObservers():
+class HasObservers:
     def __init__(self) -> None:
         logging.basicConfig()
         self._logger = logging.getLogger(__name__)
@@ -86,6 +85,19 @@ class HasObservers():
 
             return decorator
 
+
+class LocationGlobalRelative:
+    def __init__(self, lat, lon, alt=None):
+        self.lat = lat
+        self.lon = lon
+        self.alt = alt
+
+        # This is for backward compatibility.
+        self.local_frame = None
+        self.global_frame = None
+
+    def __str__(self):
+        return "LocationGlobalRelative:lat=%s,lon=%s,alt=%s" % (self.lat, self.lon, self.alt)
 
 class Core:
 
@@ -291,6 +303,10 @@ class Drone(HasObservers):
             self.notify_attribute_listeners('system_status', self.system_status, cache=True)
 
 
+        # TODO: Deal with PARAMS
+        self._params_count = -1
+
+
         # Deal with Heartbeats
         self._heartbeat_started = False
         self._heartbeat_lastsent = 0
@@ -382,14 +398,19 @@ class Drone(HasObservers):
 
         self.add_message_listener('HEARTBEAT', self.send_capabilities_request)
 
+        self._master.mav.param_request_list_send(
+            self._master.target_system, self._master.target_component
+        )
+
         # Ensure initial parameter download has started.
-        while True:
+        # TODO Fetch params when starting.
+        """while True:
             # This fn actually rate limits itself to every 2s.
             # Just retry with persistence to get our first param stream.
             self._master.param_fetch_all()
             time.sleep(0.1)
             if self._params_count > -1:
-                break
+                break"""
 
     def send_capabilities_request(self, drone, name, m):
         '''Request an AUTOPILOT_VERSION packet'''
@@ -426,7 +447,6 @@ class Drone(HasObservers):
 
     @property
     def system_status(self):
-        # TODO simplized status
         return self._system_status
 
     @property
