@@ -5,9 +5,8 @@ import math
 import geopy
 import socket
 import threading
-import multiprocessing
 import os
-from control import Drone, VehicleMode
+from control import VehicleMode
 from pymavlink import mavutil
 from geopy.distance import vincenty
 
@@ -36,7 +35,7 @@ from ctl.control import LocationGlobalRelative
 # Check connections to router.
 def CHECK_network_connection(drone, router_host, wait_time=None):
     print('{} - CHECK_network_connection({}) is started.'.format(time.ctime(), router_host))
-    if wait_time == None:
+    if wait_time is None:
         wait_time = 10 # Default wait time is 10 seconds.
     down_counter = 0
     while True:
@@ -502,7 +501,7 @@ def goto_gps_location_relative(drone, lat, lon, alt, groundspeed=None):
 # lat: Latitude.
 # lon: Longitude.
 # alt: Altitude in meters(relative to the home location).
-def goto_gps_location_relative(drone,lat, lon, alt, groundspeed=None):
+def goto_gps_location_relative(drone, lat, lon, alt, groundspeed=None):
     print('\n')
     print('{} - Calling goto_gps_location_relative(lat={}, lon={}, alt={}, groundspeed={}).'.format(time.ctime(), lat, lon, alt, groundspeed))
     destination = LocationGlobalRelative(lat, lon, alt)
@@ -764,7 +763,7 @@ def fly_follow(drone, followee_host, frame, height, radius_2D, azimuth):
         lat, lon, alt = CLIENT_request_gps(followee_host)
         followee_heading = CLIENT_request_heading_direction(followee_host)
         # Calculate destination coordinate based on followee's location.
-        if (lat != None) and (followee_heading != None):
+        if (lat is not None) and (followee_heading is not None):
             print('{} - Followee drone\'s gps coordinate is : lat={}, lon={}, alt={}'.format(time.ctime(), lat, lon, alt))
             if (frame == 'body'):
                 # Calculate follower's new location. This location is based on followee's body frame. (0=North, 90=East)
