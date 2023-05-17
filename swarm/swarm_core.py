@@ -6,11 +6,9 @@ import geopy
 import socket
 import threading
 import os
-from control import VehicleMode
 from pymavlink import mavutil
-from geopy.distance import vincenty
-
-from ctl.control import LocationGlobalRelative
+from geopy.distance import geodesic
+from ctl.control import VehicleMode, LocationGlobalRelative
 
 # MAVLink Parameters to specify coordinate frame.
 # 1) MAV_FRAME_LOCAL_NED:
@@ -618,7 +616,7 @@ def new_gps_coord_after_offset_inBodyFrame(original_gps_coord, displacement, cur
 # Calculate the distance between two gps coordinate. Return distance in meters.
 # 2D.
 def distance_between_two_gps_coord(point1, point2):
-    distance = vincenty(point1, point2).meters
+    distance = geodesic(point1, point2).meters
     return distance
 
 #===================================================

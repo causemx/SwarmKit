@@ -6,6 +6,7 @@ def main():
     core.connect(ConnectionType.udp, "127.0.0.1")
     drone = Drone(core)
     drone.initialize()
+    drone.mode = 3 #Stablize
 
     print(drone.armed)
     print(drone.mode)

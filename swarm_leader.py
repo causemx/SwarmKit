@@ -1,24 +1,47 @@
 # This is the main function for leader drone.
 # Version 2.1
 
+import threading
 import time
-from datetime import datetime
 import netifaces as ni
-import os, sys
+import os
+import builtins
+from ctl.control import Core, ConnectionType, Drone
+from swarm.swarm_core import (
+    start_SERVER_service, 
+    CHECK_network_connection, 
+    arm_no_RC,
+    air_break,
+    return_to_launch,
+    wait_for_follower_ready,
+    takeoff_and_hover,
+    CLIENT_send_immediate_command,
+    new_gps_coord_after_offset_inBodyFrame,
+    goto_gps_location_relative,
+    distance_between_two_gps_coord)
+
+import sys
 sys.path.append(os.getcwd())
-from swarm_core import *
+
+# Enter wlan inteface here.
+WLAN_INTERFACE = 'wlx04bad60b1ad5'
+ROUTER_HOST = '192.168.50.1'
 
 # Get local host IP.
-local_host = ni.ifaddresses('wlan0')[2][0]['addr']
-host_specifier = local_host[-1]
+try:
+    local_host = ni.ifaddresses(WLAN_INTERFACE)[2][0]['addr']
+    host_specifier = local_host[-1]
+except ValueError as ve:
+    print(str(ve))
+    sys.exit("localhost validate error")
 
 # Set log.
-flight_log_bufsize = 1 # 0 means unbuffered, 1 means line buffered.
-flight_log_filename = 'FlightLog_iris' + host_specifier + '_' + '{:%Y%m%d_%H-%M-%S}'.format(datetime.now()) + '.txt'
-flight_log_path = '/home/iris' + host_specifier + '/Log/'
+"""flight_log_bufsize = 1 # 0 means unbuffered, 1 means line buffered.
+flight_log_filename = 'FlightLog' + host_specifier + '_' + '{:%Y%m%d_%H-%M-%S}'.format(datetime.now()) + '.txt'
+flight_log_path = '/home/swarm' + host_specifier + '/Log/'
 flight_log_path_filename = flight_log_path + flight_log_filename
 flight_log = open(flight_log_path_filename, 'w', flight_log_bufsize)
-sys.stdout = flight_log
+sys.stdout = flight_log"""
 
 # Specify whether a leader or a follower.
 is_leader = True
@@ -32,40 +55,45 @@ print('{} - local_host = {}.'.format(time.ctime(), local_host))
 print('{} - This drone is iris{}'.format(time.ctime(), host_specifier))
 
 # Get local host IP.
-local_host = ni.ifaddresses('wlan0')[2][0]['addr']
+local_host = ni.ifaddresses(WLAN_INTERFACE)[2][0]['addr']
 print('{} - local_host = {}.'.format(time.ctime(), local_host))
 host_specifier = local_host[-1]
 print('{} - This drone is iris{}'.format(time.ctime(), host_specifier))
 
 # Reserved port.
 # The port number should be exactly the same as that in follower drone.
-__builtin__.port_gps = 60001
-__builtin__.port_status = 60002
-__builtin__.port_immediate_command = 60003
-__builtin__.port_heading = 60004
+builtins.port_gps = 60001
+builtins.port_status = 60002
+builtins.port_immediate_command = 60003
+builtins.port_heading = 60004
 
 # Connect to the Vehicle
 print('{} - Connecting to vehicle...'.format(time.ctime()))
-vehicle_temp = connect('/dev/ttyUSB0', baud=57600, wait_ready=True)
-while not 'vehicle_temp' in locals():
+# drone = control.connect('/dev/ttyUSB0', baud=57600, wait_ready=True)
+_core = Core()
+_core.connect(ConnectionType.udp, "127.0.0.1")
+drone = Drone(_core)
+
+"""while not 'vehicle_temp' in locals():
     print('{} - Waiting for vehicle connection...'.format(time.ctime()))
     time.sleep(1)
-__builtin__.vehicle = vehicle_temp
+builtins.vehicle = vehicle_temp"""
 print('{} - Vehicle is connected!'.format(time.ctime()))
 # Enable safety switch(take effect after reboot pixhawk).
-__builtin__.vehicle.parameters['BRD_SAFETYENABLE'] = 1 # Enable
+builtins.vehicle.parameters['BRD_SAFETYENABLE'] = 1 # Enable
 #vehicle.parameters['BRD_SAFETYENABLE'] = 0 # Disable
 
 # Start server services.
 start_SERVER_service(is_leader, local_host)
 
 # Start connection checker. Drone will return home once lost connection.
-router_host = '192.168.2.1'
+router_host = ROUTER_HOST
 threading.Thread(target=CHECK_network_connection,args=(router_host,),kwargs={'wait_time':10}).start()
 
 # Arm drone without RC.
 arm_no_RC()
 
+"""
 # IP list:
 iris1_host = '192.168.2.101'
 iris2_host = '192.168.2.102'
@@ -81,7 +109,7 @@ follower_host_tuple = (follower1, follower2, follower3,)
 wait_for_follower_ready(follower_host_tuple) # This is a blocking call.
 
 # Get GPS coordinate of leader's launch location.
-leader_gps_home = __builtin__.vehicle.location.global_relative_frame
+leader_gps_home = builtins.vehicle.location.global_relative_frame
 leader_lat_home = leader_gps_home.lat
 leader_lon_home = leader_gps_home.lon
 leader_alt_home = leader_gps_home.alt
@@ -93,7 +121,7 @@ print('     leader_alt_home = {} (relative)'.format(leader_alt_home))
 # DOUBLE CHECK the following 4 parameters before each flight mission.
 leader_hover_height = 20 # In meter.
 leader_fly_distance = 20 # In meters.
-leader_aim_heading_direction = __builtin__.vehicle.heading #(use current) # In degree, 0~360. 90=East
+leader_aim_heading_direction = builtins.vehicle.heading #(use current) # In degree, 0~360. 90=East
 
 # Fixed parameters.
 # fly_follow() parameters for follower1.
@@ -139,13 +167,13 @@ CLIENT_send_immediate_command(follower3, 'takeoff_and_hover({})'.format(follower
 wait_for_follower_ready(follower_host_tuple)
 
 # Get leader current location.
-leader_current_gps = __builtin__.vehicle.location.global_relative_frame
+leader_current_gps = builtins.vehicle.location.global_relative_frame
 leader_current_lat = leader_current_gps.lat
 leader_current_lon = leader_current_gps.lon
 leader_current_alt = leader_current_gps.alt
 print('{} - After taking off and hover, Leader\'s GPS coordinate : lat={}, lon={}, alt_relative={}'.format(time.ctime(), leader_current_lat, leader_current_lon, leader_current_alt))
 # Get leader current heading.
-leader_current_heading = __builtin__.vehicle.heading
+leader_current_heading = builtins.vehicle.heading
 print('{} - Leader current heading is {} degree.'.format(time.ctime(), leader_current_heading))
 
 # Generate a point, leader will fly to this point.
@@ -157,7 +185,7 @@ threading.Thread(target=goto_gps_location_relative, args=(pointA[0], pointA[1], 
 # When leader is not at destination location, keep sending follow fly command to followers.
 # You can use threading to reduce the delay.
 # Function prototype : fly_follow(followee_host, frame, height, radius_2D, azimuth)
-while ((distance_between_two_gps_coord((__builtin__.vehicle.location.global_relative_frame.lat, __builtin__.vehicle.location.global_relative_frame.lon), (pointA[0], pointA[1])) >0.5) or (abs(__builtin__.vehicle.location.global_relative_frame.alt - leader_hover_height)>0.3)):
+while ((distance_between_two_gps_coord((builtins.vehicle.location.global_relative_frame.lat, builtins.vehicle.location.global_relative_frame.lon), (pointA[0], pointA[1])) >0.5) or (abs(builtins.vehicle.location.global_relative_frame.alt - leader_hover_height)>0.3)):
     print('{} - Sending command fly_follow() to follower1.'.format(time.ctime()))
     CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {})'.format(follower1_followee, follower1_frame_to_followee, follower1_hover_height, follower1_distance_to_followee, follower1_azimuth_to_followee))
     print('{} - Sending command fly_follow() to follower2.'.format(time.ctime()))
@@ -206,13 +234,13 @@ CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {})'.format
 time.sleep(5) # Give drone 5 seconds to get to its position.
 
 # Get leader current location.
-leader_current_gps = __builtin__.vehicle.location.global_relative_frame
+leader_current_gps = builtins.vehicle.location.global_relative_frame
 leader_current_lat = leader_current_gps.lat
 leader_current_lon = leader_current_gps.lon
 leader_current_alt = leader_current_gps.alt
 print('{} - In formation 2 (diamond), leader\'s GPS coordinate : lat={}, lon={}, alt_relative={}'.format(time.ctime(), leader_current_lat, leader_current_lon, leader_current_alt))
 # Get leader current heading.
-leader_current_heading = __builtin__.vehicle.heading
+leader_current_heading = builtins.vehicle.heading
 print('{} - Leader current heading is {} degree.'.format(time.ctime(), leader_current_heading))
 
 # Generate a point, leader will fly to this point.
@@ -224,7 +252,7 @@ threading.Thread(target=goto_gps_location_relative, args=(pointA[0], pointA[1], 
 # When leader is not at destination location, keep sending follow fly command to followers.
 # You can use threading to reduce the delay.
 # Function prototype : fly_follow(followee_host, frame, height, radius_2D, azimuth)
-while ((distance_between_two_gps_coord((__builtin__.vehicle.location.global_relative_frame.lat, __builtin__.vehicle.location.global_relative_frame.lon), (pointA[0], pointA[1])) >0.5) or (abs(__builtin__.vehicle.location.global_relative_frame.alt - leader_hover_height)>0.3)):
+while ((distance_between_two_gps_coord((builtins.vehicle.location.global_relative_frame.lat, builtins.vehicle.location.global_relative_frame.lon), (pointA[0], pointA[1])) >0.5) or (abs(builtins.vehicle.location.global_relative_frame.alt - leader_hover_height)>0.3)):
     print('{} - Sending command fly_follow() to follower1.'.format(time.ctime()))
     CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {})'.format(follower1_followee, follower1_frame_to_followee, follower1_hover_height, follower1_distance_to_followee, follower1_azimuth_to_followee))
     print('{} - Sending command fly_follow() to follower2.'.format(time.ctime()))
@@ -269,13 +297,13 @@ CLIENT_send_immediate_command(follower3, 'fly_follow({}, {}, {}, {}, {})'.format
 time.sleep(5) # Give drone 5 seconds to get to its position.
 
 # Get leader current location.
-leader_current_gps = __builtin__.vehicle.location.global_relative_frame
+leader_current_gps = builtins.vehicle.location.global_relative_frame
 leader_current_lat = leader_current_gps.lat
 leader_current_lon = leader_current_gps.lon
 leader_current_alt = leader_current_gps.alt
 print('{} - In formation 3 (triangle), leader\'s GPS coordinate : lat={}, lon={}, alt_relative={}'.format(time.ctime(), leader_current_lat, leader_current_lon, leader_current_alt))
 # Get leader current heading.
-leader_current_heading = __builtin__.vehicle.heading
+leader_current_heading = builtins.vehicle.heading
 print('{} - Leader current heading is {} degree.'.format(time.ctime(), leader_current_heading))
 
 # Generate a point, leader will fly to this point.
@@ -287,7 +315,7 @@ threading.Thread(target=goto_gps_location_relative, args=(pointA[0], pointA[1], 
 # When leader is not at destination location, keep sending follow fly command to followers.
 # You can use threading to reduce the delay.
 # Function prototype : fly_follow(followee_host, frame, height, radius_2D, azimuth)
-while ((distance_between_two_gps_coord((__builtin__.vehicle.location.global_relative_frame.lat, __builtin__.vehicle.location.global_relative_frame.lon), (pointA[0], pointA[1])) >0.5) or (abs(__builtin__.vehicle.location.global_relative_frame.alt - leader_hover_height)>0.3)):
+while ((distance_between_two_gps_coord((builtins.vehicle.location.global_relative_frame.lat, builtins.vehicle.location.global_relative_frame.lon), (pointA[0], pointA[1])) >0.5) or (abs(builtins.vehicle.location.global_relative_frame.alt - leader_hover_height)>0.3)):
     print('{} - Sending command fly_follow() to follower1.'.format(time.ctime()))
     CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {})'.format(follower1_followee, follower1_frame_to_followee, follower1_hover_height, follower1_distance_to_followee, follower1_azimuth_to_followee))
     print('{} - Sending command fly_follow() to follower2.'.format(time.ctime()))
@@ -325,3 +353,4 @@ time.sleep(2)
 print('{} - Followers have returned home, Leader is returning...'.format(time.ctime()))
 return_to_launch()
 print('{} - Leader has returned home.'.format(time.ctime()))
+"""

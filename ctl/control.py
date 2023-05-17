@@ -15,7 +15,6 @@ class ControlException(Exception):
 class ConnectException(ControlException):
     '''Raised when connect error.'''
 
-
 class ConnectionType(Enum):
     serial = 1
     udp = 2
