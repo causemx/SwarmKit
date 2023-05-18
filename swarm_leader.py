@@ -4,9 +4,10 @@
 import threading
 import time
 import netifaces as ni
+import logging
 import os
 import builtins
-from ctl.control import Core, ConnectionType, Drone
+from core.control import Core, ConnectionType, Drone
 from swarm.swarm_core import (
     start_SERVER_service, 
     CHECK_network_connection, 
@@ -23,6 +24,9 @@ from swarm.swarm_core import (
 import sys
 sys.path.append(os.getcwd())
 
+FORMAT = '%(asctime)s %(filename)s %(levelname)s : %(message)s'
+logging.basicConfig(level=logging.DEBUG, format=FORMAT)
+
 # Enter wlan inteface here.
 WLAN_INTERFACE = 'wlx04bad60b1ad5'
 ROUTER_HOST = '192.168.50.1'
@@ -32,7 +36,7 @@ try:
     local_host = ni.ifaddresses(WLAN_INTERFACE)[2][0]['addr']
     host_specifier = local_host[-1]
 except ValueError as ve:
-    print(str(ve))
+    logging.error(str(ve))
     sys.exit("localhost validate error")
 
 # Set log.
@@ -46,13 +50,14 @@ sys.stdout = flight_log"""
 # Specify whether a leader or a follower.
 is_leader = True
 if is_leader:
-    print('{} - This is a leader drone.'.format(time.ctime()))
+    logging.info(f"{time.ctime()} - This is a leader drone")
+    # print('{} - This is a leader drone.'.format(time.ctime()))
     leader_host = local_host
 else:
-    print('{} - This is a follower drone.'.format(time.ctime()))
+    logging.info(f"{time.ctime()} - This is a follower drone")
 
-print('{} - local_host = {}.'.format(time.ctime(), local_host))
-print('{} - This drone is iris{}'.format(time.ctime(), host_specifier))
+logging.info(f"{time.ctime()} - local_host = {local_host}.")
+logging.info(f"{time.ctime()} - This drone specifier = {host_specifier}.")
 
 # Get local host IP.
 local_host = ni.ifaddresses(WLAN_INTERFACE)[2][0]['addr']
@@ -74,26 +79,29 @@ _core = Core()
 _core.connect(ConnectionType.udp, "127.0.0.1")
 drone = Drone(_core)
 
-"""while not 'vehicle_temp' in locals():
+while 'drone' not in locals():
     print('{} - Waiting for vehicle connection...'.format(time.ctime()))
     time.sleep(1)
-builtins.vehicle = vehicle_temp"""
+builtins.drone = drone
 print('{} - Vehicle is connected!'.format(time.ctime()))
 # Enable safety switch(take effect after reboot pixhawk).
-builtins.vehicle.parameters['BRD_SAFETYENABLE'] = 1 # Enable
+try:
+    builtins.drone.parameters['BRD_SAFETYENABLE'] = 1 # Enable
+except AttributeError as ae:
+    print("error: " + str(ae))
+    pass
 #vehicle.parameters['BRD_SAFETYENABLE'] = 0 # Disable
 
 # Start server services.
 start_SERVER_service(is_leader, local_host)
 
 # Start connection checker. Drone will return home once lost connection.
-router_host = ROUTER_HOST
-threading.Thread(target=CHECK_network_connection,args=(router_host,),kwargs={'wait_time':10}).start()
+router_host = '192.168.50.1'
+threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwargs={'wait_time':10}).start()
 
 # Arm drone without RC.
-arm_no_RC()
+arm_no_RC(drone)
 
-"""
 # IP list:
 iris1_host = '192.168.2.101'
 iris2_host = '192.168.2.102'
@@ -353,4 +361,3 @@ time.sleep(2)
 print('{} - Followers have returned home, Leader is returning...'.format(time.ctime()))
 return_to_launch()
 print('{} - Leader has returned home.'.format(time.ctime()))
-"""

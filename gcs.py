@@ -1,10 +1,8 @@
-from ctl.control import Core, Drone, ConnectionType
+from core.control import connect, ConnectionType
 
 
 def main():
-    core = Core()
-    core.connect(ConnectionType.udp, "127.0.0.1")
-    drone = Drone(core)
+    drone = connect(ConnectionType.udp, "127.0.0.1")
     drone.initialize()
     drone.mode = 3 #Stablize
 

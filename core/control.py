@@ -330,11 +330,11 @@ class LocationGlobalRelative:
     def __str__(self):
         return f"LocationGlobalRelative:lat={self.lat},lon={self.lon,},alt={self.alt}"
 
-class Core:
+class Handler:
 
-    def __init__(self) -> None:
+    def __init__(self, master) -> None:
         self._logger = logging.getLogger(__name__)
-        self.master = None
+        self.master = master
         self._alive = True
         self._accept_input = True
         
@@ -350,31 +350,6 @@ class Core:
         self.threadout.daemon = True
 
         atexit.register(self.onexit)
-
-    def connect(self, conn_type, host, port=14550, baud=921600, retry=3):
-        _retry = 0
-        while True:
-            try:
-                # master = mavutil.mavlink_connection('/dev/serial0', baud=921600)
-                # master = mavutil.mavlink_connection('udpin:{}:{}'.format(host, port))
-                if conn_type.value == 1:  # serial type
-                    self.master = master = mavutil.mavlink_connection(
-                        host, baud=baud)
-                elif conn_type.value == 2:  # udp tpye
-                    self.master = master = mavutil.mavlink_connection(
-                        'udpin:{}:{}'.format(host, port))
-                else:
-                    return 'unknown_connection_type'
-
-                hb = master.wait_heartbeat()
-                if hb: 
-                    return master
-            except ConnectException:
-                print("retry...:{}".format(_retry))
-                _retry = _retry + 1
-                if _retry > retry:
-                    print('fail_to_connect_uav')
-                time.sleep(0.3)
 
     def onexit(self):
         self._logger.info("onexit")
@@ -494,17 +469,21 @@ class Core:
 
 
 class Drone(HasObservers):
-    def __init__(self, core) -> None:
-        super(Drone, self).__init__()
+    _instance = None
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
+    def __init__(self, handler) -> None:
         self._logger = logging.getLogger(__name__)
-        self.core = core
-        self._master = core.master
+        self.handler = handler
+        self._master = handler.master
         
         self._message_listeners = {}
         self._attribute_listeners = {}
         
-        @core.forward_message
+        @handler.forward_message
         def foo(_, msg):
             self.notify_message_listener(msg.get_type(), msg)
 
@@ -553,7 +532,7 @@ class Drone(HasObservers):
         self._heartbeat_error = 30
         self._heartbeat_system = None
 
-        @core.forward_loop
+        @handler.forward_loop
         def listener(_):
             # Send 1 heartbeat per second
             if time.monotonic() - self._heartbeat_lastsent > 1:
@@ -584,7 +563,7 @@ class Drone(HasObservers):
 
         self._last_heartbeat = None
 
-        @core.forward_loop
+        @handler.forward_loop
         def listener(_):
             if self._heartbeat_lastreceived:
                 self._last_heartbeat = time.monotonic() - self._heartbeat_lastreceived
@@ -601,7 +580,7 @@ class Drone(HasObservers):
         return decorator
 
     def initialize(self, rate=4, heartbeat_timeout=30):
-        self.core.start()
+        self.handler.start()
 
         start = time.monotonic()
         self._heartbeat_error = heartbeat_timeout or 0
@@ -611,15 +590,15 @@ class Drone(HasObservers):
 
         # Poll for first heartbeat.
         # If heartbeat times out, this will interrupt.
-        while self.core._alive:
+        while self.handler._alive:
             time.sleep(.1)
             if self._heartbeat_lastreceived != start:
                 break
-        if not self.core._alive:
+        if not self.handler._alive:
             raise Exception('Timeout in initializing connection.')
 
         # Register target_system now.
-        self.core.target_system = self._heartbeat_system
+        self.handler.target_system = self._heartbeat_system
 
         # Wait until board has booted.
         while True:
@@ -835,3 +814,28 @@ class Drone(HasObservers):
             #Or watch using decorator: ``@vehicle.location.on_attribute('global_frame')``.
         """
         return self._location
+    
+def connect(conn_type, host, port=14550, baud=921600, retry=3):
+    _retry = 0
+    while True:
+        try:
+            # master = mavutil.mavlink_connection('/dev/serial0', baud=921600)
+            # master = mavutil.mavlink_connection('udpin:{}:{}'.format(host, port))
+            if conn_type.value == 1:  # serial type
+                master = mavutil.mavlink_connection(host, baud=baud)
+            elif conn_type.value == 2:  # udp tpye
+                master = mavutil.mavlink_connection('udpin:{}:{}'.format(host, port))
+            else:
+                return 'unknown_connection_type'
+
+            hb = master.wait_heartbeat()
+            if hb:
+                _handler = Handler(master)
+                _drone = Drone(_handler)
+                return _drone
+        except ConnectException:
+            print("retry...:{}".format(_retry))
+            _retry = _retry + 1
+            if _retry > retry:
+                print('fail_to_connect_uav')
+            time.sleep(0.3)

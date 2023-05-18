@@ -8,7 +8,7 @@ import threading
 import os
 from pymavlink import mavutil
 from geopy.distance import geodesic
-from ctl.control import VehicleMode, LocationGlobalRelative
+from core.control import VehicleMode, LocationGlobalRelative
 
 # MAVLink Parameters to specify coordinate frame.
 # 1) MAV_FRAME_LOCAL_NED:
@@ -638,7 +638,7 @@ def preArm_override(drone):
 
 def arm_no_RC(drone):
     # Override RC channel 3, which is the throttle channel.
-    preArm_override()
+    preArm_override(drone)
     
     # Wait for 3 seconds after overriding the throttle channel. Make sure the value is sent to pixhawk.
     time.sleep(3)
