@@ -5,14 +5,20 @@ from swarm.swarm_core import (
     arm_no_RC,
     CHECK_network_connection)
 
+from core.control import connect, ConnectionType
 import threading
 import time
 import datetime
+import logging
 import netifaces as ni
 import os
 import builtins
 import sys
 sys.path.append(os.getcwd())
+
+
+FORMAT = '%(asctime)s %(filename)s %(levelname)s : %(message)s'
+logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 
 
 # Get local host IP.
@@ -51,11 +57,11 @@ builtins.port_heading = 60004
 
 # Connect to the Vehicle
 print('{} - Connecting to vehicle...'.format(time.ctime()))
-vehicle_temp = connect('/dev/ttyUSB0', baud=57600, wait_ready=True)
-while not 'vehicle_temp' in locals():
+drone = connect(ConnectionType.udp, "127.0.0.1")
+while not 'drone' in locals():
     print('{} - Waiting for vehicle connection...'.format(time.ctime()))
     time.sleep(1)
-builtins.vehicle = vehicle_temp
+builtins.drone = drone
 print('{} - Vehicle is connected!'.format(time.ctime()))
 # Enable safety switch(take effect after reboot pixhawk).
 builtins.vehicle.parameters['BRD_SAFETYENABLE'] = 1 # Enable
