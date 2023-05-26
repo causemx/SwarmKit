@@ -62,10 +62,10 @@ logging.info(f"This drone specifier = {host_specifier}.")
 # Get local host IP.
 local_host = ni.ifaddresses(WLAN_INTERFACE)[2][0]['addr']
 
-logging.info(f"ocal_host = {local_host}.")
+logging.info(f"local_host = {local_host}.")
 host_specifier = local_host[-1]
 
-logging.info(f"This drone is DIVA{host_specifier}")
+logging.info(f"This drone is {host_specifier}")
 
 # Reserved port.
 # The port number should be exactly the same as that in follower drone.
@@ -85,15 +85,16 @@ while 'drone' not in locals():
 builtins.drone = drone
 logging.info("Vehicle is connected!")
 # Enable safety switch(take effect after reboot pixhawk).
-try:
-    builtins.drone.parameters['BRD_SAFETYENABLE'] = 1 # Enable
-except AttributeError as ae:
-    logging.error("error: " + str(ae))
-    pass
+#try:
+    # builtins.drone.parameters['BRD_SAFETYENABLE'] = 1 # Enable
+builtins.drone.parameters.set('BRD_SAFETYENABLE', 1)
+#except AttributeError as ae:
+#    logging.error("error: " + str(ae))
+#    pass
 #vehicle.parameters['BRD_SAFETYENABLE'] = 0 # Disable
 
 # Start server services.
-start_SERVER_service(is_leader, local_host)
+start_SERVER_service(drone, is_leader, local_host)
 
 # Start connection checker. Drone will return home once lost connection.
 router_host = '192.168.50.1'
@@ -101,7 +102,7 @@ threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwar
 
 # Arm drone without RC.
 arm_no_RC(drone)
-
+"""
 # IP list:
 iris1_host = '192.168.2.101'
 iris2_host = '192.168.2.102'
@@ -272,3 +273,4 @@ time.sleep(2)
 logging.info("Followers have returned home, Leader is returning...")
 return_to_launch()
 logging.info("Leader has returned home.")
+"""

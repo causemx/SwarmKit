@@ -59,12 +59,12 @@ def CHECK_network_connection(drone, router_host, wait_time=None):
 
 # This function start server services.
 # Be sure define the ports as global variables before call this function.
-def start_SERVER_service(is_leader, local_host):
+def start_SERVER_service(drone, is_leader, local_host):
     # 1) Start send gps coordinate service.
-    threading.Thread(target=SERVER_send_gps_coordinate, args=(local_host,)).start()
+    threading.Thread(target=SERVER_send_gps_coordinate, args=(drone, local_host,)).start()
     print('{} - Thread SERVER_send_gps_coordinate is started!'.format(time.ctime()))
     # 2) Start send heading direction service.
-    threading.Thread(target=SERVER_send_heading_direction, args=(local_host,)).start()
+    threading.Thread(target=SERVER_send_heading_direction, args=(drone, local_host,)).start()
     print('{} - Thread SERVER_send_heading_direction is started!'.format(time.ctime()))
     # 3) Start send follower status command.
     #    Be sure you have decleared a global variable status_waitForCommand.
@@ -638,7 +638,7 @@ def preArm_override(drone):
 
 def arm_no_RC(drone):
     # Override RC channel 3, which is the throttle channel.
-    preArm_override(drone)
+    # preArm_override(drone)
     
     # Wait for 3 seconds after overriding the throttle channel. Make sure the value is sent to pixhawk.
     time.sleep(3)

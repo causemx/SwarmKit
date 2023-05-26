@@ -79,5 +79,5 @@ print('{} - Self arming...'.format(time.ctime()))
 arm_no_RC() # Blocking call.
 # Once armed, change status_waitForCommand to True.
 builtins.status_waitForCommand = True
-print('{} - __builtin__.status_waitForCommand = {}'.format(time.ctime(), __builtin__.status_waitForCommand))
+print('{} - __builtin__.status_waitForCommand = {}'.format(time.ctime(), builtins.status_waitForCommand))
 print('{} - Follower is armed!'.format(time.ctime()))

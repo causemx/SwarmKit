@@ -1,6 +1,7 @@
 import atexit
 import math
 import socket
+import struct
 from threading import Thread
 import time
 import logging
@@ -33,7 +34,30 @@ class VehicleMode:
     def __ne__(self, other):
         return self.name != other
 
-class Battery(object):
+class GPSInfo():
+    """
+    Standard information about GPS.
+
+    If there is no GPS lock the parameters are set to ``None``.
+
+    :param Int eph: GPS horizontal dilution of position (HDOP).
+    :param Int epv: GPS vertical dilution of position (VDOP).
+    :param Int fix_type: 0-1: no fix, 2: 2D fix, 3: 3D fix
+    :param Int satellites_visible: Number of satellites visible.
+
+    .. todo:: FIXME: GPSInfo class - possibly normalize eph/epv?  report fix type as string?
+    """
+
+    def __init__(self, eph, epv, fix_type, satellites_visible):
+        self.eph = eph
+        self.epv = epv
+        self.fix_type = fix_type
+        self.satellites_visible = satellites_visible
+
+    def __str__(self):
+        return "GPSInfo:fix=%s,num_sat=%s" % (self.fix_type, self.satellites_visible)
+
+class Battery():
     """
     System battery information.
 
@@ -82,6 +106,9 @@ class SystemStatus(object):
         return self.state != other
 
 class HasObservers:
+    """
+    Implementation of observer pattern for add/remove/notify listener.
+    """
     def __init__(self) -> None:
         logging.basicConfig()
         self._logger = logging.getLogger(__name__)
@@ -132,6 +159,50 @@ class HasObservers:
 
             return decorator
 
+class Parameters(HasObservers):
+    def __init__(self, drone) -> None:
+        super(Parameters, self).__init__()
+        self._logger = logging.getLogger(__name__)
+        self._drone = drone
+
+    def set(self, name, value, retries=3):
+        name = name.upper()
+        # convert to single precision floating point number (the type used by low level mavlink messages)
+        value = float(struct.unpack('f', struct.pack('f', value))[0])
+        remaining = retries
+        while True:
+            self._drone._master.param_set_send(name, value)
+            tstart = time.monotonic()
+            if remaining == 0:
+                break
+            remaining -= 1
+            while time.monotonic() - tstart < 1:
+                if name in self._drone._params_map and self._drone._params_map[name] == value:
+                    return True
+                time.sleep(0.1)
+    
+    def get(self, name):
+        name = name.upper()
+        return self._drone._params_map.get(name)
+    
+    
+    def add_attribute_listener(self, attr_name, *args, **kwargs):
+        attr_name = attr_name.upper()
+        return super(Parameters, self).add_attribute_listener(attr_name, *args, **kwargs)
+        # return super().add_attribute_listener(attr_name, observer)
+
+    def remove_attribute_listener(self, attr_name, *args, **kwargs):
+        attr_name = attr_name.upper()
+        return super(Parameters, self).remove_attribute_listener(attr_name, *args, **kwargs)
+    
+    def notify_attribute_listeners(self, attr_name, *args, **kwargs):
+        attr_name = attr_name.upper()
+        return super().notify_attribute_listeners(attr_name, *args, **kwargs)
+    
+    def on_attribute(self, attr_name, *args, **kwargs):
+        attr_name = attr_name.upper()
+        return super().on_attribute(attr_name, *args, **kwargs)
+    
 class Locations(HasObservers):
     """
     An object for holding location information in global, global relative and local frames.
@@ -476,6 +547,7 @@ class Drone(HasObservers):
         return cls._instance
 
     def __init__(self, handler) -> None:
+        super(Drone, self).__init__()
         self._logger = logging.getLogger(__name__)
         self.handler = handler
         self._master = handler.master
@@ -518,9 +590,93 @@ class Drone(HasObservers):
             self.notify_attribute_listeners('system_status', self.system_status, cache=True)
 
 
-        # TODO: Deal with PARAMS
-        self._params_count = -1
+        self._voltage = None
+        self._current = None
+        self._level = None
 
+        @self.on_message('SYS_STATUS')
+        def listener(self, name, m):
+            self._voltage = m.voltage_battery
+            self._current = m.current_battery
+            self._level = m.battery_remaining
+            self.notify_attribute_listeners('battery', self.battery)
+
+        self._eph = None
+        self._epv = None
+        self._satellites_visible = None
+        self._fix_type = None  # FIXME support multiple GPSs per vehicle - possibly by using componentId
+
+        @self.on_message('GPS_RAW_INT')
+        def listener(self, name, m):
+            self._eph = m.eph
+            self._epv = m.epv
+            self._satellites_visible = m.satellites_visible
+            self._fix_type = m.fix_type
+            self.notify_attribute_listeners('gps_0', self.gps_0)
+
+        
+        # Deal with parameters
+
+        start_duration = 0.2
+        repeat_duration = 1
+
+        self._params_count = -1
+        self._params_count = -1
+        self._params_set = []
+        self._params_loaded = False
+        self._params_start = False
+        self._params_map = {}
+        self._params_last = time.monotonic()  # Last new param.
+        self._params_duration = start_duration
+        self._parameters = Parameters(self)
+
+        @handler.forward_loop
+        def listener(_):
+            # Check the time duration for last "new" params exceeds watchdog.
+            if not self._params_start:
+                return
+
+            if not self._params_loaded and all(x is not None for x in self._params_set):
+                self._params_loaded = True
+                self.notify_attribute_listeners('parameters', self.parameters)
+
+            if not self._params_loaded and time.monotonic() - self._params_last > self._params_duration:
+                c = 0
+                for i, v in enumerate(self._params_set):
+                    if v is None:
+                        self._master.mav.param_request_read_send(0, 0, b'', i)
+                        c += 1
+                        if c > 50:
+                            break
+                self._params_duration = repeat_duration
+                self._params_last = time.monotonic()
+
+        @self.on_message(['PARAM_VALUE'])
+        def listener(self, name, msg):
+            # If we discover a new param count, assume we
+            # are receiving a new param set.
+            if self._params_count != msg.param_count:
+                self._params_loaded = False
+                self._params_start = True
+                self._params_count = msg.param_count
+                self._params_set = [None] * msg.param_count
+
+            # Attempt to set the params. We throw an error
+            # if the index is out of range of the count or
+            # we lack a param_id.
+            try:
+                if msg.param_index < msg.param_count and msg:
+                    if self._params_set[msg.param_index] is None:
+                        self._params_last = time.monotonic()
+                        self._params_duration = start_duration
+                    self._params_set[msg.param_index] = msg
+
+                self._params_map[msg.param_id] = msg.param_value
+                self._parameters.notify_attribute_listeners(msg.param_id, msg.param_value,
+                                                            cache=True)
+            except:
+                import traceback
+                traceback.print_exc()
 
         # Deal with Heartbeats
         self._heartbeat_started = False
@@ -682,8 +838,38 @@ class Drone(HasObservers):
             return False
 
     @property
+    def gps_0(self):
+        """
+        GPS position information (:py:class:`GPSInfo`).
+        """
+        return GPSInfo(self._eph, self._epv, self._fix_type, self._satellites_visible)
+    
+    @property
     def armed(self):
         return self._armed
+
+    @armed.setter
+    def armed(self, value):
+        if bool(value) is not self._armed:
+            if value:
+                self._master.arducopter_arm()
+            else:
+                self._master.arducopter_disarm()
+                
+    @property
+    def is_armable(self):
+        """
+        Returns ``True`` if the vehicle is ready to arm, false otherwise (``Boolean``).
+
+        This attribute wraps a number of pre-arm checks, ensuring that the vehicle has booted,
+        has a good GPS fix, and that the EKF pre-arm is complete.
+        """
+        #* check that mode is not INITIALSING
+        #* check that we have a GPS fix
+        #* check that EKF pre-arm is complete
+        # TODO Maybe something change belong version upgrade.
+        return self.mode != 'INITIALISING' and \
+            (self.gps_0.fix_type is not None and self.gps_0.fix_type > 1) #and self._ekf_predposhorizabs
 
     @property
     def mode(self):
@@ -754,6 +940,16 @@ class Drone(HasObservers):
         }.get(self._system_status, None)
 
     @property
+    def battery(self):
+        """
+        Current system batter status (:py:class:`Battery`).
+        """
+        if self._voltage is None or self._current is None or self._level is None:
+            return None
+        return Battery(self._voltage, self._current, self._level)
+
+
+    @property
     def location(self):
         """
         The vehicle location in global, global relative and local frames (:py:class:`Locations`).
@@ -815,6 +1011,13 @@ class Drone(HasObservers):
         """
         return self._location
     
+    @property
+    def parameters(self):
+        """
+        The (editable) parameters for this vehicle (:py:class:`Parameters`).
+        """
+        return self._parameters
+    
 def connect(conn_type, host, port=14550, baud=921600, retry=3):
     _retry = 0
     while True:
@@ -832,6 +1035,7 @@ def connect(conn_type, host, port=14550, baud=921600, retry=3):
             if hb:
                 _handler = Handler(master)
                 _drone = Drone(_handler)
+                _drone.initialize()
                 return _drone
         except ConnectException:
             print("retry...:{}".format(_retry))
