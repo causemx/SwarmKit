@@ -1,6 +1,6 @@
-# MicroGCS
+# SwarmKit
 
-This is the wrapper for uav ground control, swarm and communication.
+This is the wrapper for drone control and swarming library.
 
 The wrapper is based on pymavlink and server/client communicating written in python-socket. To use the wrapper server called "swarm" function to running on the same system by multiple threading.
 
