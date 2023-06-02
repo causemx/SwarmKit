@@ -102,7 +102,7 @@ threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwar
 
 # Arm drone without RC.
 arm_no_RC(drone)
-"""
+
 # IP list:
 iris1_host = '192.168.2.101'
 iris2_host = '192.168.2.102'
@@ -273,4 +273,3 @@ time.sleep(2)
 logging.info("Followers have returned home, Leader is returning...")
 return_to_launch()
 logging.info("Leader has returned home.")
-"""
