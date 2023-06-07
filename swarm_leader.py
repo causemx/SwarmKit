@@ -7,6 +7,7 @@ import netifaces as ni
 import logging
 import os
 import builtins
+import argparse
 from core.control import connect, ConnectionType
 from swarm.swarm_core import (
     start_SERVER_service, 
@@ -26,6 +27,16 @@ sys.path.append(os.getcwd())
 
 FORMAT = '%(asctime)s %(filename)s %(levelname)s : %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("host", help="host address")
+parser.add_argument("port", type=int, help="port number")
+try:
+    args = parser.parse_args()
+    print(args)
+except Exception:
+    logging.error("input error")
+    sys.exit("missing some reqirement parameters.")
 
 # Enter wlan inteface here.
 WLAN_INTERFACE = 'wlx04bad60b1ad5'
@@ -77,7 +88,7 @@ builtins.port_heading = 60004
 # Connect to the Vehicle
 logging.info("Connecting to vehicle...")
 # drone = control.connect('/dev/ttyUSB0', baud=57600, wait_ready=True)
-drone = connect(ConnectionType.udp, "127.0.0.1")
+drone = connect(ConnectionType.udp, args.host, args.port)
 
 while 'drone' not in locals():
     logging.info("Waiting for vehicle connection...")
@@ -102,7 +113,9 @@ threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwar
 
 # Arm drone without RC.
 arm_no_RC(drone)
+
 """
+# TODO Modify for auto-detect follower by broadcast and recv ack.
 # IP list:
 iris1_host = '192.168.2.101'
 iris2_host = '192.168.2.102'
@@ -197,7 +210,6 @@ threading.Thread(target=air_break, args=()).start()
 for iter_follower in follower_host_tuple:
     print(iter_follower)
     CLIENT_send_immediate_command(iter_follower, 'air_break()')
-
 
 # * Formation 3 (triangle)
 time.sleep(3)

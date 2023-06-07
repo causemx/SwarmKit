@@ -32,14 +32,14 @@ from core.control import VehicleMode, LocationGlobalRelative
 
 # Check connections to router.
 def CHECK_network_connection(drone, router_host, wait_time=None):
-    print('{} - CHECK_network_connection({}) is started.'.format(time.ctime(), router_host))
+    # print('{} - CHECK_network_connection({}) is started.'.format(time.ctime(), router_host))
     if wait_time is None:
         wait_time = 10 # Default wait time is 10 seconds.
     down_counter = 0
     while True:
         response = os.system('ping -c 1 ' + router_host)
         if response==0: # Link is OK.
-            print('{} - Connection to router is OK. Check again in {} seconds'.format(time.ctime(), wait_time))
+            # print('{} - Connection to router is OK. Check again in {} seconds'.format(time.ctime(), wait_time))
             down_counter = 0 # Once connection is OK, reset counter.
             time.sleep(wait_time) # Check again in wait_time seconds.
             continue # Return back to the beginning of the while loop.
@@ -49,7 +49,7 @@ def CHECK_network_connection(drone, router_host, wait_time=None):
             if down_counter > 5:
                 print('{} - Reached maximum down times.'.format(time.ctime()))
                 print('{} - Vehicle is returning home...'.format(time.ctime()))
-                drone.mode = VehicleMode('RTL')
+                drone.mode = VehicleMode('BRAKE')
                 break # Terminate while loop.
             else: # Have not reached max down times.
                 print('{} - Check again in 1 seconds'.format(time.ctime()))
