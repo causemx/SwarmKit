@@ -114,16 +114,16 @@ threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwar
 # Arm drone without RC.
 arm_no_RC(drone)
 
-"""
 # TODO Modify for auto-detect follower by broadcast and recv ack.
 # IP list:
-iris1_host = '192.168.2.101'
-iris2_host = '192.168.2.102'
-iris3_host = '192.168.2.103'
+iris1_host = '192.168.50.113'
+iris2_host = '192.168.50.109'
+#iris3_host = '192.168.2.103'
 
 follower1 = iris2_host
-follower2 = iris3_host
-follower_host_tuple = (follower1, follower2,)
+#follower2 = iris3_host
+#follower_host_tuple = (follower1, follower2,)
+follower_host_tuple = (follower1)
 
 # Wait untill all followers are ready(armed).
 wait_for_follower_ready(follower_host_tuple) # This is a blocking call.
@@ -145,9 +145,10 @@ leader_aim_heading_direction = builtins.vehicle.heading #(use current) # In degr
 follower1_followee = '\''+leader_host+'\'' # The string must contain ''.
 follower1_frame_to_followee = '\''+'body'+'\'' # 'body' or 'local'.
 # fly_follow() parameters for follower2.
+"""
 follower2_followee = follower1_followee
 follower2_frame_to_followee = follower1_frame_to_followee
-
+"""
 
 # * Formation 1 (Line)
 # When taking off, drones are already in this formation.
@@ -156,10 +157,11 @@ follower1_hover_height = 20 # In meter.
 follower1_distance_to_followee = 10 # In meter.
 follower1_azimuth_to_followee = 270 # In degree. 'body' frame: 0=Forwar, 90=Right; 'local' frame: 0=North, 90=East.
 # Follower 2.
+"""
 follower2_hover_height = 20 # In meter.
 follower2_distance_to_followee = 14.4 # In meter.
 follower2_azimuth_to_followee = 225 # In degree. 'body' frame: 0=Forwar, 90=Right; 'local' frame: 0=North, 90=East.
-
+"""
 
 # When all members are ready.
 # Leader takeoff and hover (in square shape).
@@ -168,9 +170,10 @@ threading.Thread(target=takeoff_and_hover, args=(leader_hover_height,)).start()
 # Immediate command must be in string type.
 logging.info(f"Sending immediate command to : {follower1}.")
 CLIENT_send_immediate_command(follower1, 'takeoff_and_hover({})'.format(follower1_hover_height))
+"""
 logging.info(f"Sending immediate command to : {follower2}.")
 CLIENT_send_immediate_command(follower2, 'takeoff_and_hover({})'.format(follower2_hover_height))
-
+"""
 
 # Wait for follower ready. Blocking function.
 wait_for_follower_ready(follower_host_tuple)
@@ -200,8 +203,10 @@ while ((distance_between_two_gps_coord(
     (pointA[0], pointA[1])) >0.5) or (abs(builtins.vehicle.location.global_relative_frame.alt - leader_hover_height)>0.3)):
     logging.info("Sending command fly_follow() to follower1.")
     CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {})'.format(follower1_followee, follower1_frame_to_followee, follower1_hover_height, follower1_distance_to_followee, follower1_azimuth_to_followee))
+    """
     logging.info("Sending command fly_follow() to follower2.")
     CLIENT_send_immediate_command(follower2, 'fly_follow({}, {}, {}, {}, {})'.format(follower2_followee, follower2_frame_to_followee, follower2_hover_height, follower2_distance_to_followee, follower2_azimuth_to_followee))
+    """
     time.sleep(0.5)
 
 # When leader has reached destination, execute air_break().
@@ -210,8 +215,8 @@ threading.Thread(target=air_break, args=()).start()
 for iter_follower in follower_host_tuple:
     print(iter_follower)
     CLIENT_send_immediate_command(iter_follower, 'air_break()')
-
-# * Formation 3 (triangle)
+"""
+# * Formation 2 (triangle)
 time.sleep(3)
 # Shape 3 (triangle).
 # Follower 1.
