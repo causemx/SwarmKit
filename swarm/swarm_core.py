@@ -207,7 +207,7 @@ def SERVER_send_status(local_host):
         client_connection, client_address = msg_socket.accept() # Establish connection with client.
         print('{} - Received follower status request from {}.'.format(time.ctime(), client_address))
         # Send message to client.
-        str_status_waitForCommand = str(int(status_waitForCommand))
+        str_status_waitForCommand = str(int(status_waitForCommand)).encode()
         client_connection.send(str_status_waitForCommand)
         # Socket is destroyed when message has been sent.
         client_connection.close()
