@@ -222,11 +222,12 @@ def CLIENT_send_immediate_command(remote_host, immediate_command_str):
     client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
         client_socket.connect((remote_host, port_immediate_command))
+        
     except socket.error as error_msg:
         print('{} - Caught exception : {}'.format(time.ctime(), error_msg))
         print('{} - CLIENT_send_immediate_command({}, {}) is not executed!'.format(time.ctime(), remote_host, immediate_command_str))
         return
-    client_socket.send(immediate_command_str)
+    client_socket.send(immediate_command_str.encode())
 
 #=============================================================
 
@@ -330,7 +331,7 @@ def send_local_ned_velocity(drone, velocity_x, velocity_y, velocity_z, duration)
         print('{} - Local NED Velocity command is sent! Vx={}, Vy={}, Vz={}'.format(time.ctime(), velocity_x, velocity_y, velocity_z))
         print('{} - Duration = {} seconds'.format(time.ctime(), x+1))
         time.sleep(1)
-        get_vehicle_state(drone)
+    # get_vehicle_state(drone)
         print('\n')
 
 #===================================================
@@ -361,7 +362,7 @@ def send_body_frame_velocity(drone, velocity_x, velocity_y, velocity_z, duration
         print('{} - Body Frame Velocity command is sent! Vx={}, Vy={}, Vz={}'.format(time.ctime(), velocity_x, velocity_y, velocity_z))
         print('{} - Duration = {} seconds'.format(time.ctime(), x+1))
         time.sleep(1)
-        get_vehicle_state(drone)
+        # get_vehicle_state(drone)
         print('\n')
 
 #===================================================
@@ -409,7 +410,7 @@ def move_inLocalFrame(drone, north, east, down, groundspeed):
     for t in range(0, int(math.ceil(estimatedTime))):
         time.sleep(1)
         print('{} - Executed move_inLocalFrame(North={}, East={}, Down={}, groundspeed={}) for {} seconds.'.format(time.ctime(), north, east, down, groundspeed, t+1))
-        get_vehicle_state(drone)
+        # get_vehicle_state(drone)
         print('\n')
 
 #===================================================
@@ -458,7 +459,7 @@ def move_inBodyFrame(drone, forward, right, down, groundspeed):
     for t in range(0, int(math.ceil(estimatedTime))):
         time.sleep(1)
         print('{} - Executed move_inBodyFrame(forward={}, right={}, down={}, groundspeed={}) for {} seconds.'.format(time.ctime(), forward, right, down, groundspeed, t+1))
-        get_vehicle_state(drone)
+        # get_vehicle_state(drone)
         print('\n')
 
 #===================================================
@@ -472,7 +473,7 @@ def goto_gps_location_relative(drone, lat, lon, alt, groundspeed=None):
     print('{} - Calling goto_gps_location_relative(lat={}, lon={}, alt={}, groundspeed={}).'.format(time.ctime(), lat, lon, alt, groundspeed))
     destination = LocationGlobalRelative(lat, lon, alt)
     print('{} - Before calling goto_gps_location_relative(), vehicle state is:'.format(time.ctime()))
-    get_vehicle_state(drone)
+    # get_vehicle_state(drone)
     # Get current GPS coordinate, compare with destination GPS coordinate.
     current_lat = drone.location.global_relative_frame.lat
     current_lon = drone.location.global_relative_frame.lon
@@ -491,7 +492,7 @@ def goto_gps_location_relative(drone, lat, lon, alt, groundspeed=None):
         print('{} - Perpendicular distance to destination: {} m.'.format(time.ctime(), current_alt-alt))
     # When finishe, check vehicle status.
     print('{} - After calling goto_gps_location_relative(), vehicle state is:'.format(time.ctime()))
-    get_vehicle_state(drone)
+    # get_vehicle_state(drone)
 
 #===================================================
 
@@ -504,7 +505,7 @@ def goto_gps_location_relative(drone, lat, lon, alt, groundspeed=None):
     print('{} - Calling goto_gps_location_relative(lat={}, lon={}, alt={}, groundspeed={}).'.format(time.ctime(), lat, lon, alt, groundspeed))
     destination = LocationGlobalRelative(lat, lon, alt)
     print('{} - Before calling goto_gps_location_relative(), vehicle state is:'.format(time.ctime()))
-    get_vehicle_state(drone)
+    # get_vehicle_state(drone)
     # Get current GPS coordinate, compare with destination GPS coordinate.
     current_lat = drone.location.global_relative_frame.lat
     current_lon = drone.location.global_relative_frame.lon
@@ -524,7 +525,7 @@ def goto_gps_location_relative(drone, lat, lon, alt, groundspeed=None):
     
     
     print('{} - After calling goto_gps_location_relative(), vehicle state is:'.format(time.ctime()))
-    get_vehicle_state(drone)
+    # get_vehicle_state(drone)
 
 #===================================================
 
@@ -575,7 +576,7 @@ def set_yaw(drone, yaw_inDegree, bool_isRelative):
     for t in range(0, int(math.ceil(estimatedTime))):
         time.sleep(1)
         print('{} - Executed set_yaw(yaw_inDegree={}, bool_isRelative={}) for {} seconds.'.format(time.ctime(), yaw_inDegree, bool_isRelative, t+1))
-        get_vehicle_state(drone)
+        # get_vehicle_state(drone)
         print('\n')
 
 #===================================================
@@ -686,13 +687,13 @@ def air_break(drone):
         # Send message one time, then check the speed, if not stop, send again.
         print('{} - Sending air break command first time.'.format(time.ctime()))
         drone.send_mavlink(msg)
-        get_vehicle_state(drone)
+        # get_vehicle_state(drone)
         while ((drone.velocity[0]**2+drone.velocity[1]**2+drone.velocity[2]**2)>0.1):
             print('{} - Sending air break command once again.'.format(time.ctime()))
             drone.send_mavlink(msg)
             print('{} - Body Frame Velocity command is sent! Vx={}, Vy={}, Vz={}'.format(time.ctime(), drone.velocity[0], drone.velocity[1], drone.velocity[2]))
             time.sleep(1)
-            get_vehicle_state(drone)
+            # get_vehicle_state(drone)
             print('\n')
     else:
         print('{} - Vehicle is not armed, no need to break.'.format(time.ctime()))
@@ -777,7 +778,7 @@ def fly_follow(drone, followee_host, frame, height, radius_2D, azimuth):
             # Execute fly command.
             drone.simple_goto(destination)
             print('{} - After executing fly_follow(), vehicle status is:'.format(time.ctime()))
-            get_vehicle_state(drone)
+            # get_vehicle_state(drone)
         else:
             print('{} - Cannot get followee\'s GPS coordinate or heading direction, fly_follow() is not executed!'.format(time.ctime()))
     else:
@@ -792,7 +793,7 @@ def takeoff_and_hover(drone, hover_target_altitude):
     # Wait until the vehicle reaches a safe height before processing other command, otherwise the command after drone.simple_takeoff will execute immediately.
     while True:
         print('{} - Current Altitude: {} m'.format(time.ctime(), drone.location.global_relative_frame.alt))
-        get_vehicle_state(drone)        
+        # get_vehicle_state(drone)        
         print('\n')
         #Break and return from function just below target altitude.
         if drone.location.global_relative_frame.alt>=hover_target_altitude*0.95:
@@ -816,7 +817,8 @@ def return_to_launch(drone):
     print('{} - Vehicle has returned home.'.format(time.ctime()))
 
 #===================================================
-
+"""
+# get vehicle state
 def get_vehicle_state(drone):
     print('{} - Checking current Vehicle Status:'.format(time.ctime()))
     print('     Global Location: lat={}, lon={}, alt(above sea leavel)={}'.format(drone.location.global_frame.lat, drone.location.global_frame.lon, drone.location.global_frame.alt)) # Absolute GPS coordinate. Its lat and lon attributes are populated shortly after GPS becomes available. The alt can take several seconds longer to populate (from the barometer).
@@ -830,7 +832,7 @@ def get_vehicle_state(drone):
     print('     Heading: {} (degrees from North)'.format(drone.heading)) # Current heading in degrees(0~360), where North = 0.
     print('     Groundspeed: {} m/s'.format(drone.groundspeed)) # Current groundspeed in metres/second (double).This attribute is settable. The set value is the default target groundspeed when moving the vehicle using simple_goto() (or other position-based movement commands).
     print('     Airspeed: {} m/s'.format(drone.airspeed)) # Current airspeed in metres/second (double).This attribute is settable. The set value is the default target airspeed when moving the vehicle using simple_goto() (or other position-based movement commands).
-
+"""
 #===================================================
 
 

@@ -105,6 +105,35 @@ class SystemStatus(object):
     def __ne__(self, other):
         return self.state != other
 
+class Attitude(object):
+    """
+    Attitude information.
+
+    An object of this type is returned by :py:attr:`Vehicle.attitude`.
+
+    .. _figure_attitude:
+
+    .. figure:: http://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Yaw_Axis_Corrected.svg/500px-Yaw_Axis_Corrected.svg.png
+        :width: 400px
+        :alt: Diagram showing Pitch, Roll, Yaw
+        :target: http://commons.wikimedia.org/wiki/File:Yaw_Axis_Corrected.svg
+
+        Diagram showing Pitch, Roll, Yaw (`Creative Commons <http://commons.wikimedia.org/wiki/File:Yaw_Axis_Corrected.svg>`_)
+
+    :param pitch: Pitch in radians
+    :param yaw: Yaw in radians
+    :param roll: Roll in radians
+    """
+
+    def __init__(self, pitch, yaw, roll):
+        self.pitch = pitch
+        self.yaw = yaw
+        self.roll = roll
+
+    def __str__(self):
+        fmt = '{}:pitch={pitch},yaw={yaw},roll={roll}'
+        return fmt.format(self.__class__.__name__, **vars(self))
+
 class HasObservers:
     """
     Implementation of observer pattern for add/remove/notify listener.
@@ -562,6 +591,27 @@ class Drone(HasObservers):
 
         self._location = Locations(self)
 
+        self._vx = None
+        self._vy = None
+        self._vz = None
+
+
+        self._wind_direction = None
+        self._wind_speed = None
+        self._wind_speed_z = None
+
+        @self.on_message('WIND')
+        def listener(self,name, m):
+            """ WIND {direction : -180.0, speed : 0.0, speed_z : 0.0} """
+            self._wind_direction = m.direction
+            self._wind_speed = m.speed
+            self._wind_speed_z = m.speed_z
+
+        @self.on_message('GLOBAL_POSITION_INT')
+        def listener(self, name, m):
+            (self._vx, self._vy, self._vz) = (m.vx / 100.0, m.vy / 100.0, m.vz / 100.0)
+            self.notify_attribute_listeners('velocity', self.velocity)
+
 
         # Deal with heartbeat
         self._flightmode = 'AUTO'
@@ -590,6 +640,36 @@ class Drone(HasObservers):
             self.notify_attribute_listeners('system_status', self.system_status, cache=True)
 
 
+        self._pitch = None
+        self._yaw = None
+        self._roll = None
+        self._pitchspeed = None
+        self._yawspeed = None
+        self._rollspeed = None
+
+        @self.on_message('ATTITUDE')
+        def listener(self, name, m):
+            self._pitch = m.pitch
+            self._yaw = m.yaw
+            self._roll = m.roll
+            self._pitchspeed = m.pitchspeed
+            self._yawspeed = m.yawspeed
+            self._rollspeed = m.rollspeed
+            self.notify_attribute_listeners('attitude', self.attitude)
+
+        self._heading = None
+        self._airspeed = None
+        self._groundspeed = None
+
+        @self.on_message('VFR_HUD')
+        def listener(self, name, m):
+            self._heading = m.heading
+            self.notify_attribute_listeners('heading', self.heading)
+            self._airspeed = m.airspeed
+            self.notify_attribute_listeners('airspeed', self.airspeed)
+            self._groundspeed = m.groundspeed
+            self.notify_attribute_listeners('groundspeed', self.groundspeed)
+        
         self._voltage = None
         self._current = None
         self._level = None
@@ -613,6 +693,8 @@ class Drone(HasObservers):
             self._satellites_visible = m.satellites_visible
             self._fix_type = m.fix_type
             self.notify_attribute_listeners('gps_0', self.gps_0)
+            
+            
 
         
         # Deal with parameters
@@ -811,6 +893,86 @@ class Drone(HasObservers):
     def send_mavlink(self, message):
         '''Send custom message to the drone'''
         self._master.mav.send(message)
+        
+    def simple_takeoff(self, alt=None):
+        """
+        Take off and fly the vehicle to the specified altitude (in metres) and then wait for another command.
+
+        .. note::
+
+            This function should only be used on Copter vehicles.
+
+
+        The vehicle must be in GUIDED mode and armed before this is called.
+
+        There is no mechanism for notification when the correct altitude is reached,
+        and if another command arrives before that point (e.g. :py:func:`simple_goto`) it will be run instead.
+
+        .. warning::
+
+           Apps should code to ensure that the vehicle will reach a safe altitude before
+           other commands are executed. A good example is provided in the guide topic :doc:`guide/taking_off`.
+
+        :param alt: Target height, in metres.
+        """
+        if alt is not None:
+            altitude = float(alt)
+            if math.isnan(altitude) or math.isinf(altitude):
+                raise ValueError("Altitude was NaN or Infinity. Please provide a real number")
+            self._master.mav.command_long_send(0, 0, mavutil.mavlink.MAV_CMD_NAV_TAKEOFF,
+                                               0, 0, 0, 0, 0, 0, 0, altitude)
+
+    def simple_goto(self, location, airspeed=None, groundspeed=None):
+        '''
+        Go to a specified global location (:py:class:`LocationGlobal` or :py:class:`LocationGlobalRelative`).
+
+        There is no mechanism for notification when the target location is reached, and if another command arrives
+        before that point that will be executed immediately.
+
+        You can optionally set the desired airspeed or groundspeed (this is identical to setting
+        :py:attr:`airspeed` or :py:attr:`groundspeed`). The vehicle will determine what speed to
+        use if the values are not set or if they are both set.
+
+        The method will change the :py:class:`VehicleMode` to ``GUIDED`` if necessary.
+
+        .. code:: python
+
+            # Set mode to guided - this is optional as the simple_goto method will change the mode if needed.
+            vehicle.mode = VehicleMode("GUIDED")
+
+            # Set the LocationGlobal to head towards
+            a_location = LocationGlobal(-34.364114, 149.166022, 30)
+            vehicle.simple_goto(a_location)
+
+        :param location: The target location (:py:class:`LocationGlobal` or :py:class:`LocationGlobalRelative`).
+        :param airspeed: Target airspeed in m/s (optional).
+        :param groundspeed: Target groundspeed in m/s (optional).
+        '''
+        if isinstance(location, LocationGlobalRelative):
+            frame = mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT
+            alt = location.alt
+        elif isinstance(location, LocationGlobal):
+            # This should be the proper code:
+            # frame = mavutil.mavlink.MAV_FRAME_GLOBAL
+            # However, APM discards information about the relative frame
+            # and treats any alt value as relative. So we compensate here.
+            frame = mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT
+            if not self.home_location:
+                self.commands.download()
+                self.commands.wait_ready()
+            alt = location.alt - self.home_location.alt
+        else:
+            raise ValueError('Expecting location to be LocationGlobal or LocationGlobalRelative.')
+
+        self._master.mav.mission_item_send(0, 0, 0, frame,
+                                           mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 2, 0, 0,
+                                           0, 0, 0, location.lat, location.lon,
+                                           alt)
+
+        if airspeed is not None:
+            self.airspeed = airspeed
+        if groundspeed is not None:
+            self.groundspeed = groundspeed
 
     @property
     def message_factory(self):
@@ -949,6 +1111,49 @@ class Drone(HasObservers):
         return Battery(self._voltage, self._current, self._level)
 
 
+    @property
+    def groundspeed(self):
+        """
+        Current groundspeed in metres/second (``double``).
+
+        This attribute is settable. The set value is the default target groundspeed
+        when moving the vehicle using :py:func:`simple_goto` (or other position-based
+        movement commands).
+        """
+        return self._groundspeed
+
+    @property
+    def heading(self):
+        """
+        Current heading in degrees - 0..360, where North = 0 (``int``).
+        """
+        return self._heading
+    
+    @property
+    def attitude(self):
+        """
+        Current vehicle attitude - pitch, yaw, roll (:py:class:`Attitude`).
+        """
+        return Attitude(self._pitch, self._yaw, self._roll)
+    
+    @property
+    def airspeed(self):
+        """
+        Current airspeed in metres/second (``double``).
+
+        This attribute is settable. The set value is the default target airspeed
+        when moving the vehicle using :py:func:`simple_goto` (or other position-based
+        movement commands).
+        """
+        return self._airspeed
+    
+    @property
+    def velocity(self):
+        """
+        Current velocity as a three element list ``[ vx, vy, vz ]`` (in meter/sec).
+        """
+        return [self._vx, self._vy, self._vz]
+    
     @property
     def location(self):
         """

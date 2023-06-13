@@ -36,7 +36,7 @@ try:
     print(args)
 except Exception:
     logging.error("input error")
-    sys.exit("missing some reqirement parameters.")
+    sys.exit("missing some reqirement parametCLIENT_request_statusers.")
 
 # Enter wlan inteface here.
 WLAN_INTERFACE = 'wlx04bad60b1ad5'
@@ -108,28 +108,28 @@ builtins.drone.parameters.set('BRD_SAFETYENABLE', 1)
 start_SERVER_service(drone, is_leader, local_host)
 
 # Start connection checker. Drone will return home once lost connection.
-router_host = '192.168.50.1'
-threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwargs={'wait_time':10}).start()
+router_host = '192.168.1.1'
+# threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwargs={'wait_time':10}).start()
 
 # Arm drone without RC.
 arm_no_RC(drone)
 
 # TODO Modify for auto-detect follower by broadcast and recv ack.
 # IP list:
-iris1_host = '192.168.50.113'
-iris2_host = '192.168.50.109'
+iris1_host = '192.168.1.108'
+iris2_host = '192.168.1.145'
 #iris3_host = '192.168.2.103'
 
 follower1 = iris2_host
 #follower2 = iris3_host
 #follower_host_tuple = (follower1, follower2,)
-follower_host_tuple = (follower1)
+follower_host_tuple = (follower1,)
 
 # Wait untill all followers are ready(armed).
 wait_for_follower_ready(follower_host_tuple) # This is a blocking call.
 
 # Get GPS coordinate of leader's launch location.
-leader_gps_home = builtins.vehicle.location.global_relative_frame
+leader_gps_home = builtins.drone.location.global_relative_frame
 leader_lat_home = leader_gps_home.lat
 leader_lon_home = leader_gps_home.lon
 leader_alt_home = leader_gps_home.alt
@@ -138,7 +138,7 @@ logging.info(f"Home GPS coordinate: \ {leader_lat_home}, {leader_lon_home}, \ {l
 # DOUBLE CHECK the following 4 parameters before each flight mission.
 leader_hover_height = 20 # In meter.
 leader_fly_distance = 20 # In meters.
-leader_aim_heading_direction = builtins.vehicle.heading #(use current) # In degree, 0~360. 90=East
+leader_aim_heading_direction = builtins.drone.heading #(use current) # In degree, 0~360. 90=East
 
 # Fixed parameters.
 # fly_follow() parameters for follower1.
@@ -165,21 +165,21 @@ follower2_azimuth_to_followee = 225 # In degree. 'body' frame: 0=Forwar, 90=Righ
 
 # When all members are ready.
 # Leader takeoff and hover (in square shape).
-threading.Thread(target=takeoff_and_hover, args=(leader_hover_height,)).start()
+threading.Thread(target=takeoff_and_hover, args=(drone, leader_hover_height,)).start()
 # Send takeoff command to all followers.
 # Immediate command must be in string type.
 logging.info(f"Sending immediate command to : {follower1}.")
-CLIENT_send_immediate_command(follower1, 'takeoff_and_hover({})'.format(follower1_hover_height))
+CLIENT_send_immediate_command(follower1, 'takeoff_and_hover({},{})'.format('drone', follower1_hover_height))
 """
 logging.info(f"Sending immediate command to : {follower2}.")
 CLIENT_send_immediate_command(follower2, 'takeoff_and_hover({})'.format(follower2_hover_height))
 """
 
 # Wait for follower ready. Blocking function.
-wait_for_follower_ready(follower_host_tuple)
+wait_for_follower_ready(follower_host_tuple,)
 
 # Get leader current location.
-leader_current_gps = builtins.vehicle.location.global_relative_frame
+leader_current_gps = builtins.drone.location.global_relative_frame
 leader_current_lat = leader_current_gps.lat
 leader_current_lon = leader_current_gps.lon
 leader_current_alt = leader_current_gps.alt
