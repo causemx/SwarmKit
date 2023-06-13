@@ -262,7 +262,7 @@ def CLIENT_request_gps(remote_host):
         return None, None, None
     gps_msg_str = client_socket.recv(1024)
     # Return lat, lon, and alt
-    lat, lon, alt = gps_msg_str.split(',')
+    lat, lon, alt = (gps_msg_str.decode("utf-8")).split(',')
     return float(lat), float(lon), float(alt)
 
 #=============================================================
