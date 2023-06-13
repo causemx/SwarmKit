@@ -9,6 +9,7 @@ import os
 from pymavlink import mavutil
 from geopy.distance import geodesic
 from core.control import VehicleMode, LocationGlobalRelative
+from deprecated import deprecated
 
 # MAVLink Parameters to specify coordinate frame.
 # 1) MAV_FRAME_LOCAL_NED:
@@ -595,14 +596,19 @@ def new_gps_coord_after_offset_inLocalFrame(original_gps_coord, displacement, ro
 
 #===================================================
 
-# Calculate new gps coordinate given one point(lat, lon), direction(bearing), and distance. A bearing of 90 degrees corresponds to East, 180 degrees is South, and so on.
+# Calculate new gps coordinate given one point(lat, lon), direction(bearing), and distance. 
+# A bearing of 90 degrees corresponds to East, 180 degrees is South, and so on.
 def new_gps_coord_after_offset_inBodyFrame(original_gps_coord, displacement, current_heading, rotation_degree_relative):
     # current_heading is in degree, North = 0, East = 90.
     # Get rotation degree in local frame.
     rotation_degree_absolute = rotation_degree_relative + current_heading
     if rotation_degree_absolute >= 360:
         rotation_degree_absolute -= 360
-    vincentyDistance = geopy.distance.VincentyDistance(meters = displacement)
+     
+    #@deprecated(version='x.x.x', reason="This function is removed, use geopy.distance.geodesic instead")
+    # vincentyDistance = geopy.distance.VincentyDistance(meters = displacement)
+    
+    vincentyDistance = geopy.distance.geodesic(displacement)
     original_point = geopy.Point(original_gps_coord[0], original_gps_coord[1])
     new_gps_coord = vincentyDistance.destination(point=original_point, bearing=rotation_degree_absolute)
     new_gps_lat = new_gps_coord.latitude

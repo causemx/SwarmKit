@@ -186,7 +186,7 @@ leader_current_alt = leader_current_gps.alt
 logging.info(f"After taking off and hover, Leader\'s GPS coordinate : \
              lat={leader_current_lat}, lon={leader_current_lon}, alt_relative={leader_current_alt}")
 # Get leader current heading.
-leader_current_heading = builtins.vehicle.heading
+leader_current_heading = builtins.drone.heading
 logging.info(f"Leader current heading is {leader_current_heading} degree.")
 
 # Generate a point, leader will fly to this point.
@@ -199,7 +199,7 @@ threading.Thread(target=goto_gps_location_relative, args=(pointA[0], pointA[1], 
 # You can use threading to reduce the delay.
 # Function prototype : fly_follow(followee_host, frame, height, radius_2D, azimuth)
 while ((distance_between_two_gps_coord(
-    (builtins.vehicle.location.global_relative_frame.lat, builtins.vehicle.location.global_relative_frame.lon), 
+    (builtins.drone.location.global_relative_frame.lat, builtins.drone.location.global_relative_frame.lon), 
     (pointA[0], pointA[1])) >0.5) or (abs(builtins.vehicle.location.global_relative_frame.alt - leader_hover_height)>0.3)):
     logging.info("Sending command fly_follow() to follower1.")
     CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {})'.format(follower1_followee, follower1_frame_to_followee, follower1_hover_height, follower1_distance_to_followee, follower1_azimuth_to_followee))
