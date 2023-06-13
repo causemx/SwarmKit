@@ -109,7 +109,7 @@ def SERVER_send_gps_coordinate(drone, local_host):
         current_lon_str = '{:.7f}'.format(current_lon)
         current_alt_str = '{:.7f}'.format(current_alt)
         gps_msg_str = current_lat_str + ',' + current_lon_str + ',' + current_alt_str
-        client_connection.send(gps_msg_str)
+        client_connection.send(gps_msg_str.encode())
         # Socket is destroyed when message has been sent.
         client_connection.close()
 
@@ -136,7 +136,7 @@ def SERVER_send_heading_direction(drone, local_host):
         # Get current heading.
         heading = drone.heading
         current_heading_str = str(heading)
-        client_connection.send(current_heading_str)
+        client_connection.send(current_heading_str.encode())
         # Socket is destroyed when message has been sent.
         client_connection.close()
 

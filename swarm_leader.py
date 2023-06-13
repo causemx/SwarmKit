@@ -169,7 +169,7 @@ threading.Thread(target=takeoff_and_hover, args=(drone, leader_hover_height,)).s
 # Send takeoff command to all followers.
 # Immediate command must be in string type.
 logging.info(f"Sending immediate command to : {follower1}.")
-CLIENT_send_immediate_command(follower1, 'takeoff_and_hover({},{})'.format('drone', follower1_hover_height))
+CLIENT_send_immediate_command(follower1, 'takeoff_and_hover({}, {})'.format('drone', follower1_hover_height))
 """
 logging.info(f"Sending immediate command to : {follower2}.")
 CLIENT_send_immediate_command(follower2, 'takeoff_and_hover({})'.format(follower2_hover_height))
@@ -194,7 +194,7 @@ pointA = new_gps_coord_after_offset_inBodyFrame((leader_current_lat,leader_curre
 logging.info(f"Leader is going to pointA : {pointA}")
 
 # Leader go to new location. Followers fly follow in square shape.
-threading.Thread(target=goto_gps_location_relative, args=(pointA[0], pointA[1], leader_hover_height,),kwargs={'groundspeed':1}).start()
+threading.Thread(target=goto_gps_location_relative, args=(drone, pointA[0], pointA[1], leader_hover_height,),kwargs={'groundspeed':1}).start()
 # When leader is not at destination location, keep sending follow fly command to followers.
 # You can use threading to reduce the delay.
 # Function prototype : fly_follow(followee_host, frame, height, radius_2D, azimuth)
@@ -202,7 +202,7 @@ while ((distance_between_two_gps_coord(
     (builtins.drone.location.global_relative_frame.lat, builtins.drone.location.global_relative_frame.lon), 
     (pointA[0], pointA[1])) >0.5) or (abs(builtins.vehicle.location.global_relative_frame.alt - leader_hover_height)>0.3)):
     logging.info("Sending command fly_follow() to follower1.")
-    CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {})'.format(follower1_followee, follower1_frame_to_followee, follower1_hover_height, follower1_distance_to_followee, follower1_azimuth_to_followee))
+    CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {}, {})'.format('drone', follower1_followee, follower1_frame_to_followee, follower1_hover_height, follower1_distance_to_followee, follower1_azimuth_to_followee))
     """
     logging.info("Sending command fly_follow() to follower2.")
     CLIENT_send_immediate_command(follower2, 'fly_follow({}, {}, {}, {}, {})'.format(follower2_followee, follower2_frame_to_followee, follower2_hover_height, follower2_distance_to_followee, follower2_azimuth_to_followee))
