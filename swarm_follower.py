@@ -33,7 +33,7 @@ except Exception:
     exit()
 
 # Get local host IP.
-local_host = ni.ifaddresses('wlx04bad60b1ad5')[2][0]['addr']
+local_host = ni.ifaddresses('wlx6429430aa398')[2][0]['addr']
 host_specifier = local_host[-1]
 
 # Set log.
@@ -82,8 +82,8 @@ logging.info('{} - Vehicle is connected!'.format(time.ctime()))
 start_SERVER_service(drone, is_leader, local_host)
 
 # Start connection checker. Drone will return home once lost connection.
-router_host = '192.168.50.1'
-threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwargs={'wait_time':10}).start()
+router_host = '192.168.1.1'
+# threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwargs={'wait_time':10}).start()
 
 # Self arm.
 logging.info('{} - Self arming...'.format(time.ctime()))
