@@ -223,12 +223,11 @@ def CLIENT_send_immediate_command(remote_host, immediate_command_str):
     client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
         client_socket.connect((remote_host, port_immediate_command))
-        
+        client_socket.send(immediate_command_str.encode())
     except socket.error as error_msg:
         print('{} - Caught exception : {}'.format(time.ctime(), error_msg))
         print('{} - CLIENT_send_immediate_command({}, {}) is not executed!'.format(time.ctime(), remote_host, immediate_command_str))
         return
-    client_socket.send(immediate_command_str.encode())
 
 #=============================================================
 
@@ -489,10 +488,10 @@ def goto_gps_location_relative(drone, lat, lon, alt, groundspeed=None):
         current_lat = drone.location.global_relative_frame.lat
         current_lon = drone.location.global_relative_frame.lon
         current_alt = drone.location.global_relative_frame.alt
-        print('{} - Horizontal distance to destination: {} m.'.format(time.ctime(), distance_between_two_gps_coord((current_lat,current_lon), (lat,lon))))
-        print('{} - Perpendicular distance to destination: {} m.'.format(time.ctime(), current_alt-alt))
+        # print('{} - Horizontal distance to destination: {} m.'.format(time.ctime(), distance_between_two_gps_coord((current_lat,current_lon), (lat,lon))))
+        # print('{} - Perpendicular distance to destination: {} m.'.format(time.ctime(), current_alt-alt))
     # When finishe, check vehicle status.
-    print('{} - After calling goto_gps_location_relative(), vehicle state is:'.format(time.ctime()))
+    # print('{} - After calling goto_gps_location_relative(), vehicle state is:'.format(time.ctime()))
     # get_vehicle_state(drone)
 
 #===================================================
@@ -502,10 +501,9 @@ def goto_gps_location_relative(drone, lat, lon, alt, groundspeed=None):
 # lon: Longitude.
 # alt: Altitude in meters(relative to the home location).
 def goto_gps_location_relative(drone, lat, lon, alt, groundspeed=None):
-    print('\n')
     print('{} - Calling goto_gps_location_relative(lat={}, lon={}, alt={}, groundspeed={}).'.format(time.ctime(), lat, lon, alt, groundspeed))
     destination = LocationGlobalRelative(lat, lon, alt)
-    print('{} - Before calling goto_gps_location_relative(), vehicle state is:'.format(time.ctime()))
+    # print('{} - Before calling goto_gps_location_relative(), vehicle state is:'.format(time.ctime()))
     # get_vehicle_state(drone)
     # Get current GPS coordinate, compare with destination GPS coordinate.
     current_lat = drone.location.global_relative_frame.lat

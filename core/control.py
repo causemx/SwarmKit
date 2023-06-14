@@ -968,7 +968,6 @@ class Drone(HasObservers):
                                            mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 2, 0, 0,
                                            0, 0, 0, location.lat, location.lon,
                                            alt)
-
         if airspeed is not None:
             self.airspeed = airspeed
         if groundspeed is not None:
@@ -1161,6 +1160,21 @@ class Drone(HasObservers):
         movement commands).
         """
         return self._airspeed
+    
+    @airspeed.setter
+    def airspeed(self, speed):
+        speed_type = 0  # air speed
+        msg = self.message_factory.command_long_encode(
+            0, 0,    # target system, target component
+            mavutil.mavlink.MAV_CMD_DO_CHANGE_SPEED,  # command
+            0,  # confirmation
+            speed_type,  # param 1
+            speed,  # speed in metres/second
+            -1, 0, 0, 0, 0  # param 3 - 7
+        )
+
+        # send command to vehicle
+        self.send_mavlink(msg)
     
     @property
     def velocity(self):
