@@ -964,10 +964,24 @@ class Drone(HasObservers):
         else:
             raise ValueError('Expecting location to be LocationGlobal or LocationGlobalRelative.')
 
-        self._master.mav.mission_item_send(0, 0, 0, frame,
+        '''self._master.mav.mission_item_send(0, 0, 0, frame,
                                            mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 2, 0, 0,
                                            0, 0, 0, location.lat, location.lon,
-                                           alt)
+                                           alt)'''
+        
+        self._master.mav.send(mavutil.mavlink.MAVLink_set_position_target_global_int_message(
+        10, 
+        self._master.target_system, self._master.target_component, 
+        frame, 
+        int(0b110111111000),
+        int(location.lat*1e7),
+        int(location.lon*1e7),
+        alt, 
+        0, 0, 0,
+        0, 0, 0,
+        0, 0
+        ))
+        
         if airspeed is not None:
             self.airspeed = airspeed
         if groundspeed is not None:
