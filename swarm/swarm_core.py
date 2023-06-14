@@ -162,6 +162,7 @@ def SERVER_receive_and_execute_immediate_command(local_host):
         print('\n{} - Received immediate command from {}.'.format(time.ctime(), client_address))
         # Receive message.
         immediate_command_str = client_connection.recv(1024)
+        immediate_command_str = immediate_command_str.decode("utf-8")
         print('{} - Immediate command is: {}'.format(time.ctime(), immediate_command_str))
         # If command is 'break', execute immediately, regardless of the status of follower drone.
         if immediate_command_str == 'air_break()':
@@ -488,10 +489,10 @@ def goto_gps_location_relative(drone, lat, lon, alt, groundspeed=None):
         current_lat = drone.location.global_relative_frame.lat
         current_lon = drone.location.global_relative_frame.lon
         current_alt = drone.location.global_relative_frame.alt
-        print('{} - Horizontal distance to destination: {} m.'.format(time.ctime(), distance_between_two_gps_coord((current_lat,current_lon), (lat,lon))))
-        print('{} - Perpendicular distance to destination: {} m.'.format(time.ctime(), current_alt-alt))
+        # print('{} - Horizontal distance to destination: {} m.'.format(time.ctime(), distance_between_two_gps_coord((current_lat,current_lon), (lat,lon))))
+        # print('{} - Perpendicular distance to destination: {} m.'.format(time.ctime(), current_alt-alt))
     # When finishe, check vehicle status.
-    print('{} - After calling goto_gps_location_relative(), vehicle state is:'.format(time.ctime()))
+    # print('{} - After calling goto_gps_location_relative(), vehicle state is:'.format(time.ctime()))
     # get_vehicle_state(drone)
 
 #===================================================
@@ -602,7 +603,7 @@ def new_gps_coord_after_offset_inBodyFrame(original_gps_coord, displacement, cur
     rotation_degree_absolute = rotation_degree_relative + current_heading
     if rotation_degree_absolute >= 360:
         rotation_degree_absolute -= 360
-    vincentyDistance = geopy.distance.VincentyDistance(meters = displacement)
+    vincentyDistance = geopy.distance.geodesic(displacement)
     original_point = geopy.Point(original_gps_coord[0], original_gps_coord[1])
     new_gps_coord = vincentyDistance.destination(point=original_point, bearing=rotation_degree_absolute)
     new_gps_lat = new_gps_coord.latitude
