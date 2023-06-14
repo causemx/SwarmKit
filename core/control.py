@@ -964,11 +964,24 @@ class Drone(HasObservers):
         else:
             raise ValueError('Expecting location to be LocationGlobal or LocationGlobalRelative.')
 
-        self._master.mav.mission_item_send(0, 0, 0, frame,
+        '''self._master.mav.mission_item_send(0, 0, 0, frame,
                                            mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 2, 0, 0,
                                            0, 0, 0, location.lat, location.lon,
-                                           alt)
-
+                                           alt)'''
+        
+        self._master.mav.send(mavutil.mavlink.MAVLink_set_position_target_global_int_message(
+        10, 
+        self._master.target_system, self._master.target_component, 
+        frame, 
+        int(0b110111111000),
+        int(location.lat*1e7),
+        int(location.lon*1e7),
+        alt, 
+        0, 0, 0,
+        0, 0, 0,
+        0, 0
+        ))
+        
         if airspeed is not None:
             self.airspeed = airspeed
         if groundspeed is not None:
@@ -1121,6 +1134,21 @@ class Drone(HasObservers):
         movement commands).
         """
         return self._groundspeed
+    
+    @groundspeed.setter
+    def groundspeed(self, speed):
+        speed_type = 1  # ground speed
+        msg = self.message_factory.command_long_encode(
+            0, 0,    # target system, target component
+            mavutil.mavlink.MAV_CMD_DO_CHANGE_SPEED,  # command
+            0,  # confirmation
+            speed_type,  # param 1
+            speed,  # speed in metres/second
+            -1, 0, 0, 0, 0  # param 3 - 7
+        )
+
+        # send command to vehicle
+        self.send_mavlink(msg)
 
     @property
     def heading(self):
@@ -1146,6 +1174,21 @@ class Drone(HasObservers):
         movement commands).
         """
         return self._airspeed
+    
+    @airspeed.setter
+    def airspeed(self, speed):
+        speed_type = 0  # air speed
+        msg = self.message_factory.command_long_encode(
+            0, 0,    # target system, target component
+            mavutil.mavlink.MAV_CMD_DO_CHANGE_SPEED,  # command
+            0,  # confirmation
+            speed_type,  # param 1
+            speed,  # speed in metres/second
+            -1, 0, 0, 0, 0  # param 3 - 7
+        )
+
+        # send command to vehicle
+        self.send_mavlink(msg)
     
     @property
     def velocity(self):

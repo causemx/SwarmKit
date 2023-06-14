@@ -1,3 +1,4 @@
 mavproxy
 netifaces
 geopy
+deprecated

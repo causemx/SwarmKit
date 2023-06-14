@@ -180,7 +180,7 @@ def SERVER_receive_and_execute_immediate_command(local_host):
                 exec(immediate_command_str)
                 # Change status_waitForCommand to True to enable other calls.
                 status_waitForCommand = True
-                print('{} - Immediate command \'{}\' is finished!'.format(time.ctime(), immediate_command_str))
+                # print('{} - Immediate command \'{}\' is finished!'.format(time.ctime(), immediate_command_str))
             else: # status_waitForCommand == False:
                 print('{} - Omit immediate command \'{}\', because status_waitForCommand is False!'.format(time.ctime(), immediate_command_str))
         # Socket is destroyed when message has been sent.
