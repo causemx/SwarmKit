@@ -6,6 +6,7 @@ import geopy
 import socket
 import threading
 import os
+from math import asin, atan2, cos, degrees, radians, sin
 from pymavlink import mavutil
 from geopy.distance import geodesic
 from core.control import VehicleMode, LocationGlobalRelative
@@ -108,7 +109,7 @@ def SERVER_send_gps_coordinate(drone, local_host):
         current_lon_str = '{:.7f}'.format(current_lon)
         current_alt_str = '{:.7f}'.format(current_alt)
         gps_msg_str = current_lat_str + ',' + current_lon_str + ',' + current_alt_str
-        client_connection.send(gps_msg_str)
+        client_connection.send(gps_msg_str.encode())
         # Socket is destroyed when message has been sent.
         client_connection.close()
 
@@ -135,7 +136,7 @@ def SERVER_send_heading_direction(drone, local_host):
         # Get current heading.
         heading = drone.heading
         current_heading_str = str(heading)
-        client_connection.send(current_heading_str)
+        client_connection.send(current_heading_str.encode())
         # Socket is destroyed when message has been sent.
         client_connection.close()
 
@@ -180,7 +181,7 @@ def SERVER_receive_and_execute_immediate_command(local_host):
                 exec(immediate_command_str)
                 # Change status_waitForCommand to True to enable other calls.
                 status_waitForCommand = True
-                # print('{} - Immediate command \'{}\' is finished!'.format(time.ctime(), immediate_command_str))
+                print('{} - Immediate command \'{}\' is finished!'.format(time.ctime(), immediate_command_str))
             else: # status_waitForCommand == False:
                 print('{} - Omit immediate command \'{}\', because status_waitForCommand is False!'.format(time.ctime(), immediate_command_str))
         # Socket is destroyed when message has been sent.
@@ -223,12 +224,11 @@ def CLIENT_send_immediate_command(remote_host, immediate_command_str):
     client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
         client_socket.connect((remote_host, port_immediate_command))
-        
+        client_socket.send(immediate_command_str.encode())
     except socket.error as error_msg:
         print('{} - Caught exception : {}'.format(time.ctime(), error_msg))
         print('{} - CLIENT_send_immediate_command({}, {}) is not executed!'.format(time.ctime(), remote_host, immediate_command_str))
         return
-    client_socket.send(immediate_command_str.encode())
 
 #=============================================================
 
@@ -495,40 +495,6 @@ def goto_gps_location_relative(drone, lat, lon, alt, groundspeed=None):
     # print('{} - After calling goto_gps_location_relative(), vehicle state is:'.format(time.ctime()))
     # get_vehicle_state(drone)
 
-#===================================================
-
-# Go to specified GPS coordinate on leaders command.
-# lat: Latitude.
-# lon: Longitude.
-# alt: Altitude in meters(relative to the home location).
-def goto_gps_location_relative(drone, lat, lon, alt, groundspeed=None):
-    print('\n')
-    print('{} - Calling goto_gps_location_relative(lat={}, lon={}, alt={}, groundspeed={}).'.format(time.ctime(), lat, lon, alt, groundspeed))
-    destination = LocationGlobalRelative(lat, lon, alt)
-    print('{} - Before calling goto_gps_location_relative(), vehicle state is:'.format(time.ctime()))
-    # get_vehicle_state(drone)
-    # Get current GPS coordinate, compare with destination GPS coordinate.
-    current_lat = drone.location.global_relative_frame.lat
-    current_lon = drone.location.global_relative_frame.lon
-    current_alt = drone.location.global_relative_frame.alt
-    
-    while ((distance_between_two_gps_coord((current_lat,current_lon), (lat,lon)) >0.5) or (abs(current_alt-alt)>0.3)):
-        # Execute fly command.
-        drone.simple_goto(destination, groundspeed=groundspeed)
-        # wait for one second.
-        time.sleep(0.5)
-        # Check current GPS coordinate, compare with destination GPS coordinate.
-        current_lat = drone.location.global_relative_frame.lat
-        current_lon = drone.location.global_relative_frame.lon
-        current_alt = drone.location.global_relative_frame.alt
-        print('{} - Horizontal distance to destination: {} m.'.format(time.ctime(), distance_between_two_gps_coord((current_lat,current_lon), (lat,lon))))
-        print('{} - Perpendicular distance to destination: {} m.'.format(time.ctime(), current_alt-alt))
-    
-    
-    print('{} - After calling goto_gps_location_relative(), vehicle state is:'.format(time.ctime()))
-    # get_vehicle_state(drone)
-
-#===================================================
 
 # The vehicle "yaw" is the direction that the vehicle is facing in the horizontal plane.
 # On Copter this yaw need not be the direction of travel (though it is by default).
@@ -594,24 +560,25 @@ def new_gps_coord_after_offset_inLocalFrame(original_gps_coord, displacement, ro
     #new_gps_lon = decimal.Decimal(new_gps_lon)
     return (round(new_gps_lat, 7), round(new_gps_lon, 7))
 
-#===================================================
 
-# Calculate new gps coordinate given one point(lat, lon), direction(bearing), and distance. A bearing of 90 degrees corresponds to East, 180 degrees is South, and so on.
-def new_gps_coord_after_offset_inBodyFrame(original_gps_coord, displacement, current_heading, rotation_degree_relative):
-    # current_heading is in degree, North = 0, East = 90.
-    # Get rotation degree in local frame.
-    rotation_degree_absolute = rotation_degree_relative + current_heading
-    if rotation_degree_absolute >= 360:
-        rotation_degree_absolute -= 360
-    vincentyDistance = geopy.distance.geodesic(displacement)
-    original_point = geopy.Point(original_gps_coord[0], original_gps_coord[1])
-    new_gps_coord = vincentyDistance.destination(point=original_point, bearing=rotation_degree_absolute)
-    new_gps_lat = new_gps_coord.latitude
-    new_gps_lon = new_gps_coord.longitude
-    # If convert float to decimal, round will be accurate, but will take 50% more time. Not necessary.
-    #new_gps_lat = decimal.Decimal(new_gps_lat)
-    #new_gps_lon = decimal.Decimal(new_gps_lon)
-    return (round(new_gps_lat, 7), round(new_gps_lon, 7))
+def get_point_at_distance(original_gps_coord, displacement, current_heading, R=6371):
+    """
+    original_gps_coord: original gps coordiantion(lat, lon)
+    displacement: target distance from initial (km)
+    current_heading: (true) heading in degrees
+    R: optional radius of sphere, defaults to mean radius of earth
+
+    Returns new lat/lon coordinate {d}km from initial, in degrees
+    """
+    lat1 = radians(original_gps_coord[0])
+    lon1 = radians(original_gps_coord[1])
+    a = radians(current_heading)
+    lat2 = asin(sin(lat1) * cos(displacement/R) + cos(lat1) * sin(displacement/R) * cos(a))
+    lon2 = lon1 + atan2(
+        sin(a) * sin(displacement/R) * cos(lat1),
+        cos(displacement/R) - sin(lat1) * sin(lat2)
+    )
+    return (degrees(lat2), degrees(lon2),)
 
 #===================================================
 
@@ -767,7 +734,8 @@ def fly_follow(drone, followee_host, frame, height, radius_2D, azimuth):
             print('{} - Followee drone\'s gps coordinate is : lat={}, lon={}, alt={}'.format(time.ctime(), lat, lon, alt))
             if (frame == 'body'):
                 # Calculate follower's new location. This location is based on followee's body frame. (0=North, 90=East)
-                new_location_gps = new_gps_coord_after_offset_inBodyFrame((lat, lon), radius_2D, followee_heading, azimuth)
+                #new_location_gps = new_gps_coord_after_offset_inBodyFrame((lat, lon), radius_2D, followee_heading, azimuth)
+                new_location_gps = get_point_at_distance((lat, lon), radius_2D, followee_heading)
                 destination = LocationGlobalRelative(new_location_gps[0], new_location_gps[1], alt)
             elif (frame == 'local'):
                 # Calculate follower's new location. This location is based on local frame. (0=North, 90=East)

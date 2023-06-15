@@ -19,7 +19,6 @@ from swarm.swarm_core import (
     wait_for_follower_ready,
     takeoff_and_hover,
     CLIENT_send_immediate_command,
-    new_gps_coord_after_offset_inBodyFrame,
     goto_gps_location_relative,
     distance_between_two_gps_coord)
 
@@ -192,7 +191,7 @@ logging.info(f"Leader current heading is {leader_current_heading} degree.")
 
 # Generate a point, leader will fly to this point.
 # pointA = new_gps_coord_after_offset_inBodyFrame((leader_current_lat,leader_current_lon), leader_fly_distance, leader_current_heading, 0) # 0=Forward, 90=Right, 180=Backward, 270=Left.
-pointA = get_point_at_distance((leader_current_lat,leader_current_lon), leader_fly_distance/1000, leader_current_heading)
+pointA = get_point_at_distance((leader_current_lat,leader_current_lon), leader_fly_distance/10, leader_current_heading)
 logging.info(f"Leader is going to pointA : {pointA}")
 
 # Leader go to new location. Followers fly follow in square shape.
