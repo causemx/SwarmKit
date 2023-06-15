@@ -564,7 +564,7 @@ def new_gps_coord_after_offset_inLocalFrame(original_gps_coord, displacement, ro
 def get_point_at_distance(original_gps_coord, displacement, current_heading, R=6371):
     """
     original_gps_coord: original gps coordiantion(lat, lon)
-    displacement: target distance from initial (km)
+    displacement: target distance from initial (meters)
     current_heading: (true) heading in degrees
     R: optional radius of sphere, defaults to mean radius of earth
 
