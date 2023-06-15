@@ -10,12 +10,12 @@ import builtins
 import argparse
 from core.control import connect, ConnectionType
 from swarm.swarm_core import (
-    get_point_at_distance,
+    new_gps_coord_after_offset_inBodyFrame,
     start_SERVER_service, 
-    CHECK_network_connection, 
+    # CHECK_network_connection, 
     arm_no_RC,
     air_break,
-    return_to_launch,
+    # return_to_launch,
     wait_for_follower_ready,
     takeoff_and_hover,
     CLIENT_send_immediate_command,
@@ -155,7 +155,7 @@ follower2_frame_to_followee = follower1_frame_to_followee
 # Follower 1.
 follower1_hover_height = 20 # In meter.
 follower1_distance_to_followee = 10 # In meter.
-follower1_azimuth_to_followee = 0 # In degree. 'body' frame: 0=Forwar, 90=Right; 'local' frame: 0=North, 90=East.
+follower1_azimuth_to_followee = 270 # In degree. 'body' frame: 0=Forwar, 90=Right; 'local' frame: 0=North, 90=East.
 # Follower 2.
 """
 follower2_hover_height = 20 # In meter.
@@ -190,8 +190,8 @@ leader_current_heading = builtins.drone.heading
 logging.info(f"Leader current heading is {leader_current_heading} degree.")
 
 # Generate a point, leader will fly to this point.
-# pointA = new_gps_coord_after_offset_inBodyFrame((leader_current_lat,leader_current_lon), leader_fly_distance, leader_current_heading, 0) # 0=Forward, 90=Right, 180=Backward, 270=Left.
-pointA = get_point_at_distance((leader_current_lat,leader_current_lon), leader_fly_distance/10, leader_current_heading)
+pointA = new_gps_coord_after_offset_inBodyFrame((leader_current_lat,leader_current_lon), leader_fly_distance/1000, leader_current_heading, 0) # 0=Forward, 90=Right, 180=Backward, 270=Left.
+# pointA = get_point_at_distance((leader_current_lat,leader_current_lon), leader_fly_distance/1000, leader_current_heading)
 logging.info(f"Leader is going to pointA : {pointA}")
 
 # Leader go to new location. Followers fly follow in square shape.
@@ -202,7 +202,7 @@ threading.Thread(target=goto_gps_location_relative, args=(drone, pointA[0], poin
 
 while ((distance_between_two_gps_coord(
     (builtins.drone.location.global_relative_frame.lat, builtins.drone.location.global_relative_frame.lon), 
-    (pointA[0], pointA[1])) >0.5) or (abs(builtins.vehicle.location.global_relative_frame.alt - leader_hover_height)>0.3)):
+    (pointA[0], pointA[1])) >0.5) or (abs(builtins.drone.location.global_relative_frame.alt - leader_hover_height)>0.3)):
     
     logging.info("Sending command fly_follow() to follower1.")
     CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {}, {})'.format(
@@ -220,10 +220,10 @@ while ((distance_between_two_gps_coord(
 
 # When leader has reached destination, execute air_break().
 # At the same time, send air_break command to all followers immediately.
-threading.Thread(target=air_break, args=(drone)).start()
+threading.Thread(target=air_break, args=(drone,)).start()
 for iter_follower in follower_host_tuple:
     print(iter_follower)
-    CLIENT_send_immediate_command(iter_follower, 'air_break()')
+    CLIENT_send_immediate_command(iter_follower, 'air_break(drone)')
 """
 # * Formation 2 (triangle)
 time.sleep(3)
