@@ -561,6 +561,27 @@ def new_gps_coord_after_offset_inLocalFrame(original_gps_coord, displacement, ro
     return (round(new_gps_lat, 7), round(new_gps_lon, 7))
 
 
+#===================================================
+
+# Calculate new gps coordinate given one point(lat, lon), direction(bearing), and distance. A bearing of 90 degrees corresponds to East, 180 degrees is South, and so on.
+def new_gps_coord_after_offset_inBodyFrame(original_gps_coord, displacement, current_heading, rotation_degree_relative):
+    # current_heading is in degree, North = 0, East = 90.
+    # Get rotation degree in local frame.
+    rotation_degree_absolute = rotation_degree_relative + current_heading
+    if rotation_degree_absolute >= 360:
+        rotation_degree_absolute -= 360
+    vincentyDistance = geopy.distance.distance(kilometers=displacement)
+    original_point = geopy.Point(original_gps_coord[0], original_gps_coord[1])
+    new_gps_coord = vincentyDistance.destination(point=original_point, bearing=rotation_degree_absolute)
+    new_gps_lat = new_gps_coord.latitude
+    new_gps_lon = new_gps_coord.longitude
+    # If convert float to decimal, round will be accurate, but will take 50% more time. Not necessary.
+    #new_gps_lat = decimal.Decimal(new_gps_lat)
+    #new_gps_lon = decimal.Decimal(new_gps_lon)
+    return (round(new_gps_lat, 7), round(new_gps_lon, 7))
+
+#===================================================
+
 def get_point_at_distance(original_gps_coord, displacement, current_heading, R=6371):
     """
     original_gps_coord: original gps coordiantion(lat, lon)
