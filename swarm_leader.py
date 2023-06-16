@@ -224,7 +224,7 @@ threading.Thread(target=air_break, args=(drone,)).start()
 for iter_follower in follower_host_tuple:
     print(iter_follower)
     CLIENT_send_immediate_command(iter_follower, 'air_break(drone)')
-"""
+
 # * Formation 2 (triangle)
 time.sleep(3)
 # Shape 3 (triangle).
@@ -233,19 +233,28 @@ follower1_hover_height = 22 # In meter.
 follower1_distance_to_followee = 14.4 # In meter.
 follower1_azimuth_to_followee = 225 # In degree. 'body' frame: 0=Forwar, 90=Right; 'local' frame: 0=North, 90=East.
 # Follower 2.
+'''
 follower2_hover_height = 24 # In meter.
 follower2_distance_to_followee = 10 # In meter.
 follower2_azimuth_to_followee = 180 # In degree. 'body' frame: 0=Forwar, 90=Right; 'local' frame: 0=North, 90=East.
+'''
 
 # 1) move follower1.
 logging.info("Sending command fly_follow() to follower1.")
-CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {})'.format(follower1_followee, follower1_frame_to_followee, follower1_hover_height, follower1_distance_to_followee, follower1_azimuth_to_followee))
+CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {}, {})'.format(
+    'drone',
+    follower1_followee,
+    follower1_frame_to_followee,
+    follower1_hover_height,
+    follower1_distance_to_followee,
+    follower1_azimuth_to_followee))
 time.sleep(5) # Give drone 5 seconds to get to its position.
 # 2) move follower2.
+'''
 logging.info("Sending command fly_follow() to follower2.")
 CLIENT_send_immediate_command(follower2, 'fly_follow({}, {}, {}, {}, {})'.format(follower2_followee, follower2_frame_to_followee, follower2_hover_height, follower2_distance_to_followee, follower2_azimuth_to_followee))
 time.sleep(5) # Give drone 5 seconds to get to its position.
-
+'''
 
 # Get leader current location.
 leader_current_gps = builtins.vehicle.location.global_relative_frame
@@ -258,28 +267,36 @@ leader_current_heading = builtins.vehicle.heading
 logging.info(f"Leader current heading is {leader_current_heading} degree.")
 
 # Generate a point, leader will fly to this point.
-pointA = new_gps_coord_after_offset_inBodyFrame((leader_current_lat,leader_current_lon), leader_fly_distance, leader_current_heading, 0) # 0=Forward, 90=Right, 180=Backward, 270=Left.
+pointA = new_gps_coord_after_offset_inBodyFrame((leader_current_lat,leader_current_lon), leader_fly_distance/1000, leader_current_heading, 0) # 0=Forward, 90=Right, 180=Backward, 270=Left.
 logging.info(f"Leader is going to pointA : {pointA}")
 
 # Leader go to new location.
-threading.Thread(target=goto_gps_location_relative, args=(pointA[0], pointA[1], leader_hover_height,),kwargs={'groundspeed':1}).start()
+threading.Thread(target=goto_gps_location_relative, args=(drone, pointA[0], pointA[1], leader_hover_height,),kwargs={'groundspeed':1}).start()
 # When leader is not at destination location, keep sending follow fly command to followers.
 # You can use threading to reduce the delay.
 # Function prototype : fly_follow(followee_host, frame, height, radius_2D, azimuth)
-while ((distance_between_two_gps_coord((builtins.vehicle.location.global_relative_frame.lat, builtins.vehicle.location.global_relative_frame.lon), (pointA[0], pointA[1])) >0.5) or (abs(builtins.vehicle.location.global_relative_frame.alt - leader_hover_height)>0.3)):
+while ((distance_between_two_gps_coord((builtins.drone.location.global_relative_frame.lat, builtins.drone.location.global_relative_frame.lon), (pointA[0], pointA[1])) >0.5) or (abs(builtins.vehicle.location.global_relative_frame.alt - leader_hover_height)>0.3)):
     logging.info("Sending command fly_follow() to follower1.")
-    CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {})'.format(follower1_followee, follower1_frame_to_followee, follower1_hover_height, follower1_distance_to_followee, follower1_azimuth_to_followee))
+    CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {}, {})'.format(
+        'drone',
+        follower1_followee,
+        follower1_frame_to_followee,
+        follower1_hover_height,
+        follower1_distance_to_followee,
+        follower1_azimuth_to_followee))
+    '''
     logging.info("Sending command fly_follow() to follower2.")
     CLIENT_send_immediate_command(follower2, 'fly_follow({}, {}, {}, {}, {})'.format(follower2_followee, follower2_frame_to_followee, follower2_hover_height, follower2_distance_to_followee, follower2_azimuth_to_followee))
+    '''
     time.sleep(0.5)
 
 # When leader has reached destination, execute air_break().
 # At the same time, send air_break command to all followers immediately.
-threading.Thread(target=air_break, args=()).start()
+threading.Thread(target=air_break, args=(drone)).start()
 for iter_follower in follower_host_tuple:
-    CLIENT_send_immediate_command(iter_follower, 'air_break()')
+    CLIENT_send_immediate_command(iter_follower, 'air_break(drone)')
 
-
+"""
 # * Mission completed, leader and followers go home
 # Wait for follower ready.
 wait_for_follower_ready(follower_host_tuple)

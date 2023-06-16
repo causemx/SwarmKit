@@ -755,8 +755,8 @@ def fly_follow(drone, followee_host, frame, height, radius_2D, azimuth):
             print('{} - Followee drone\'s gps coordinate is : lat={}, lon={}, alt={}'.format(time.ctime(), lat, lon, alt))
             if (frame == 'body'):
                 # Calculate follower's new location. This location is based on followee's body frame. (0=North, 90=East)
-                #new_location_gps = new_gps_coord_after_offset_inBodyFrame((lat, lon), radius_2D, followee_heading, azimuth)
-                new_location_gps = get_point_at_distance((lat, lon), radius_2D, followee_heading)
+                new_location_gps = new_gps_coord_after_offset_inBodyFrame((lat, lon), radius_2D, followee_heading, azimuth)
+                # new_location_gps = get_point_at_distance((lat, lon), radius_2D, followee_heading)
                 destination = LocationGlobalRelative(new_location_gps[0], new_location_gps[1], alt)
             elif (frame == 'local'):
                 # Calculate follower's new location. This location is based on local frame. (0=North, 90=East)
