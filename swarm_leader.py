@@ -12,7 +12,7 @@ from core.control import connect, ConnectionType
 from swarm.swarm_core import (
     new_gps_coord_after_offset_inBodyFrame,
     start_SERVER_service, 
-    # CHECK_network_connection, 
+    CHECK_network_connection, 
     arm_no_RC,
     air_break,
     # return_to_launch,
@@ -109,7 +109,7 @@ start_SERVER_service(drone, is_leader, local_host)
 
 # Start connection checker. Drone will return home once lost connection.
 router_host = '192.168.1.1'
-# threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwargs={'wait_time':10}).start()
+threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwargs={'wait_time':10}).start()
 
 # Arm drone without RC.
 arm_no_RC(drone)
@@ -203,7 +203,7 @@ threading.Thread(target=goto_gps_location_relative, args=(drone, pointA[0], poin
 while ((distance_between_two_gps_coord(
     (builtins.drone.location.global_relative_frame.lat, builtins.drone.location.global_relative_frame.lon), 
     (pointA[0], pointA[1])) >0.5) or (abs(builtins.drone.location.global_relative_frame.alt - leader_hover_height)>0.3)):
-    
+
     logging.info("Sending command fly_follow() to follower1.")
     CLIENT_send_immediate_command(follower1, 'fly_follow({}, {}, {}, {}, {}, {})'.format(
         'drone',
@@ -216,7 +216,7 @@ while ((distance_between_two_gps_coord(
     #logging.info("Sending command fly_follow() to follower2.")
     #CLIENT_send_immediate_command(follower2, 'fly_follow({}, {}, {}, {}, {})'.format(follower2_followee, follower2_frame_to_followee, follower2_hover_height, follower2_distance_to_followee, follower2_azimuth_to_followee))
     
-    time.sleep(0.5)
+    time.sleep(1)
 
 # When leader has reached destination, execute air_break().
 # At the same time, send air_break command to all followers immediately.

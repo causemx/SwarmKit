@@ -750,6 +750,11 @@ def fly_follow(drone, followee_host, frame, height, radius_2D, azimuth):
         print('{} - Requesting followee drone\'s gps coordinate...'.format(time.ctime()))
         lat, lon, alt = CLIENT_request_gps(followee_host)
         followee_heading = CLIENT_request_heading_direction(followee_host)
+        
+        # Calculate leader and followee distance for avoid crashing.
+        _d = geodesic((drone.location.global_relative_frame.lat, drone.location.global_relative_frame.lat), (lat, lon)).km
+        print('{} - Distance between host and followee:{}'.format(time.ctime(), _d))
+        
         # Calculate destination coordinate based on followee's location.
         if (lat is not None) and (followee_heading is not None):
             print('{} - Followee drone\'s gps coordinate is : lat={}, lon={}, alt={}'.format(time.ctime(), lat, lon, alt))
