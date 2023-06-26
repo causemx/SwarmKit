@@ -1,6 +1,7 @@
 # This is the main function for leader drone.
 # Version 2.1
 
+import signal
 import threading
 import time
 import netifaces as ni
@@ -8,6 +9,7 @@ import logging
 import os
 import builtins
 import argparse
+import atexit
 from core.control import connect, ConnectionType
 from swarm.swarm_core import (
     new_gps_coord_after_offset_inBodyFrame,
@@ -24,6 +26,8 @@ from swarm.swarm_core import (
 
 import sys
 sys.path.append(os.getcwd())
+
+
 
 FORMAT = '%(asctime)s %(filename)s %(levelname)s : %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
@@ -118,12 +122,11 @@ arm_no_RC(drone)
 # IP list:
 iris1_host = '192.168.1.108'
 iris2_host = '192.168.1.145'
-#iris3_host = '192.168.2.103'
+iris3_host = '192.168.2.103'
 
 follower1 = iris2_host
-#follower2 = iris3_host
-#follower_host_tuple = (follower1, follower2,)
-follower_host_tuple = (follower1,)
+follower2 = iris3_host
+follower_host_tuple = (follower1, follower2,)
 
 # Wait untill all followers are ready(armed).
 wait_for_follower_ready(follower_host_tuple) # This is a blocking call.
@@ -145,10 +148,19 @@ leader_aim_heading_direction = builtins.drone.heading #(use current) # In degree
 follower1_followee = '\''+leader_host+'\'' # The string must contain ''.
 follower1_frame_to_followee = '\''+'body'+'\'' # 'body' or 'local'.
 # fly_follow() parameters for follower2.
-"""
 follower2_followee = follower1_followee
 follower2_frame_to_followee = follower1_frame_to_followee
-"""
+
+
+# Register EMERGENCY STOP for all drone.
+def exit_handler():
+    print('!!EMERGENCY STOP!!')
+    threading.Thread(target=air_break, args=(drone,)).start()
+    for iter_follower in follower_host_tuple:
+        print(iter_follower)
+        CLIENT_send_immediate_command(iter_follower, 'air_break(drone)')
+
+atexit.register(exit_handler)
 
 # * Formation 1 (Line)
 # When taking off, drones are already in this formation.
@@ -157,11 +169,10 @@ follower1_hover_height = 20 # In meter.
 follower1_distance_to_followee = 10 # In meter.
 follower1_azimuth_to_followee = 90 # In degree. 'body' frame: 0=Forwar, 90=Right; 'local' frame: 0=North, 90=East.
 # Follower 2.
-"""
 follower2_hover_height = 20 # In meter.
 follower2_distance_to_followee = 14.4 # In meter.
 follower2_azimuth_to_followee = 225 # In degree. 'body' frame: 0=Forwar, 90=Right; 'local' frame: 0=North, 90=East.
-"""
+
 
 # When all members are ready.
 # Leader takeoff and hover (in square shape).
@@ -170,10 +181,10 @@ threading.Thread(target=takeoff_and_hover, args=(drone, leader_hover_height,)).s
 # Immediate command must be in string type.
 logging.info(f"Sending immediate command to : {follower1}.")
 CLIENT_send_immediate_command(follower1, 'takeoff_and_hover({}, {})'.format('drone', follower1_hover_height))
-"""
+
 logging.info(f"Sending immediate command to : {follower2}.")
 CLIENT_send_immediate_command(follower2, 'takeoff_and_hover({})'.format(follower2_hover_height))
-"""
+
 
 # Wait for follower ready. Blocking function.
 wait_for_follower_ready(follower_host_tuple,)
@@ -213,10 +224,16 @@ while ((distance_between_two_gps_coord(
         follower1_distance_to_followee/1000,
         follower1_azimuth_to_followee))
     
-    #logging.info("Sending command fly_follow() to follower2.")
-    #CLIENT_send_immediate_command(follower2, 'fly_follow({}, {}, {}, {}, {})'.format(follower2_followee, follower2_frame_to_followee, follower2_hover_height, follower2_distance_to_followee, follower2_azimuth_to_followee))
+    logging.info("Sending command fly_follow() to follower2.")
+    CLIENT_send_immediate_command(follower2, 'fly_follow({}, {}, {}, {}, {}, {})'.format(
+        'drone',
+        follower2_followee,
+        follower2_frame_to_followee,
+        follower2_hover_height,
+        follower2_distance_to_followee/1000,
+        follower2_azimuth_to_followee))
     
-    time.sleep(1)
+    time.sleep(0.1)
 
 # When leader has reached destination, execute air_break().
 # At the same time, send air_break command to all followers immediately.
@@ -233,11 +250,11 @@ follower1_hover_height = 22 # In meter.
 follower1_distance_to_followee = 10 # In meter.
 follower1_azimuth_to_followee = 90 # In degree. 'body' frame: 0=Forwar, 90=Right; 'local' frame: 0=North, 90=East.
 # Follower 2.
-"""
+
 follower2_hover_height = 20 # In meter.
 follower2_distance_to_followee = 14.4 # In meter.
 follower2_azimuth_to_followee = 225 # In degree. 'body' frame: 0=Forwar, 90=Right; 'local' frame: 0=North, 90=East.
-"""
+
 
 leader_fly_distance = leader_fly_distance + 20
 
@@ -264,11 +281,16 @@ while ((distance_between_two_gps_coord(
         follower1_hover_height,
         follower1_distance_to_followee/1000,
         follower1_azimuth_to_followee))
-    
-    #logging.info("Sending command fly_follow() to follower2.")
-    #CLIENT_send_immediate_command(follower2, 'fly_follow({}, {}, {}, {}, {})'.format(follower2_followee, follower2_frame_to_followee, follower2_hover_height, follower2_distance_to_followee, follower2_azimuth_to_followee))
-    
-    time.sleep(0.5)
+        
+    logging.info("Sending command fly_follow() to follower2.")
+    CLIENT_send_immediate_command(follower2, 'fly_follow({}, {}, {}, {}, {}, {})'.format(
+        'drone',
+        follower2_followee,
+        follower2_frame_to_followee,
+        follower2_hover_height,
+        follower2_distance_to_followee/1000,
+        follower2_azimuth_to_followee))
+    time.sleep(0.1)
 
 # When leader has reached destination, execute air_break().
 # At the same time, send air_break command to all followers immediately.
@@ -373,3 +395,4 @@ logging.info("Followers have returned home, Leader is returning...")
 return_to_launch()
 logging.info("Leader has returned home.")
 """
+
