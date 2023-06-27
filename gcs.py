@@ -1,22 +1,21 @@
 import sys
 import time
 import signal
+import atexit
 from core.control import connect, ConnectionType
 from swarm.swarm_core import (
     arm_no_RC, 
     takeoff_and_hover, 
     )
 
-def signal_handler(signum, frame):
-    print('signal_handler: caught signal ' + str(signum))
-    if signum == signal.SIGINT.value:
-        print('SIGINT')
-        sys.exit(1)
+# Register EMERGENCY STOP for all drone.
+def exit_handler():
+    print('!!EMERGENCY STOP!!')
+
 
 
 def main():
-    signal.signal(signal.SIGINT, signal_handler)
-    print(signal.SIGINT)
+    atexit.register(exit_handler)
     
     drone = connect(ConnectionType.udp, "127.0.0.1", 14551)
     # arm_no_RC(drone)
