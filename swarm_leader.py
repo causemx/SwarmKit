@@ -1,14 +1,13 @@
 # This is the main function for leader drone.
 # Version 2.1
 
-import signal
+import yaml
 import threading
 import time
 import netifaces as ni
 import logging
 import os
 import builtins
-import argparse
 import atexit
 from core.control import connect, ConnectionType
 from swarm.swarm_core import (
@@ -32,23 +31,19 @@ sys.path.append(os.getcwd())
 FORMAT = '%(asctime)s %(filename)s %(levelname)s : %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 
-parser = argparse.ArgumentParser()
-parser.add_argument("host", help="host address")
-parser.add_argument("port", type=int, help="port number")
-try:
-    args = parser.parse_args()
-    print(args)
-except Exception:
-    logging.error("input error")
-    sys.exit("missing some reqirement parametCLIENT_request_statusers.")
 
+# Read config.yaml
+with open('swarm_config.yaml', 'r') as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+
+print(config['WLAN_INTERFACE'])
 # Enter wlan inteface here.
-WLAN_INTERFACE = 'wlx04bad60b1ad5'
-ROUTER_HOST = '192.168.50.1'
+#WLAN_INTERFACE = 'wlx04bad60b1ad5'
+#ROUTER_HOST = '192.168.50.1'
 
 # Get local host IP.
 try:
-    local_host = ni.ifaddresses(WLAN_INTERFACE)[2][0]['addr']
+    local_host = ni.ifaddresses(config['WLAN_INTERFACE'])[2][0]['addr']
     host_specifier = local_host[-1]
 except ValueError as ve:
     logging.error(str(ve))
@@ -74,8 +69,7 @@ else:
 logging.info(f"local_host = {local_host}.")
 logging.info(f"This drone specifier = {host_specifier}.")
 
-# Get local host IP.
-local_host = ni.ifaddresses(WLAN_INTERFACE)[2][0]['addr']
+
 
 logging.info(f"local_host = {local_host}.")
 host_specifier = local_host[-1]
@@ -92,7 +86,7 @@ builtins.port_heading = 60004
 # Connect to the Vehicle
 logging.info("Connecting to vehicle...")
 # drone = control.connect('/dev/ttyUSB0', baud=57600, wait_ready=True)
-drone = connect(ConnectionType.udp, args.host, args.port)
+drone = connect(ConnectionType.serial, '/dev/ttyAMA0', baud=57600)
 
 while 'drone' not in locals():
     logging.info("Waiting for vehicle connection...")
@@ -112,17 +106,16 @@ builtins.drone.parameters.set('BRD_SAFETYENABLE', 1)
 start_SERVER_service(drone, is_leader, local_host)
 
 # Start connection checker. Drone will return home once lost connection.
-router_host = '192.168.1.1'
-threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwargs={'wait_time':10}).start()
+threading.Thread(target=CHECK_network_connection,args=(drone, config['ROUTER_HOST'],),kwargs={'wait_time':10}).start()
 
 # Arm drone without RC.
 arm_no_RC(drone)
 
-# TODO Modify for auto-detect follower by broadcast and recv ack.
+#*[IP LIST] Modify for auto-detect follower by broadcast and recv ack.
 # IP list:
-iris1_host = '192.168.1.108'
-iris2_host = '192.168.1.145'
-iris3_host = '192.168.2.103'
+iris1_host = config['host1']
+iris2_host = config['host2']
+iris3_host = config['host3']
 
 follower1 = iris2_host
 follower2 = iris3_host

@@ -1,19 +1,18 @@
 # This is the main function for follower drone.
 
+import threading
+import yaml
 from swarm.swarm_core import (
     start_SERVER_service, 
     arm_no_RC,
     CHECK_network_connection)
 
 from core.control import connect, ConnectionType
-import threading
 import time
-import datetime
 import logging
 import netifaces as ni
 import os
 import builtins
-import argparse
 import sys
 sys.path.append(os.getcwd())
 
@@ -21,19 +20,12 @@ sys.path.append(os.getcwd())
 FORMAT = '%(asctime)s %(filename)s %(levelname)s : %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 
-
-parser = argparse.ArgumentParser()
-parser.add_argument("host", help="host address")
-parser.add_argument("port", type=int, help="port number")
-try:
-    args = parser.parse_args()
-    print(args)
-except Exception:
-    logging.error("input error")
-    exit()
+# Read config.yaml
+with open('swarm_config.yaml', 'r') as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
 
 # Get local host IP.
-local_host = ni.ifaddresses('wlx6429430aa398')[2][0]['addr']
+local_host = ni.ifaddresses(config['WLAN_INTERFACE'])[2][0]['addr']
 host_specifier = local_host[-1]
 
 # Set log.
@@ -68,7 +60,7 @@ builtins.port_heading = 60004
 
 # Connect to the Vehicle
 logging.info('{} - Connecting to vehicle...'.format(time.ctime()))
-drone = connect(ConnectionType.udp, host=args.host, port=args.port)
+drone = connect(ConnectionType.serial, '/dev/ttyAMA0', baud=57600)
 while 'drone' not in locals():
     logging.info('{} - Waiting for vehicle connection...'.format(time.ctime()))
     time.sleep(1)
@@ -82,8 +74,8 @@ logging.info('{} - Vehicle is connected!'.format(time.ctime()))
 start_SERVER_service(drone, is_leader, local_host)
 
 # Start connection checker. Drone will return home once lost connection.
-router_host = '192.168.1.1'
-# threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwargs={'wait_time':10}).start()
+router_host = config['ROUTER_HOST']
+threading.Thread(target=CHECK_network_connection,args=(drone, router_host,),kwargs={'wait_time':10}).start()
 
 # Self arm.
 logging.info('{} - Self arming...'.format(time.ctime()))

@@ -2,7 +2,7 @@ import sys
 import time
 import signal
 import atexit
-from core.control import connect, ConnectionType
+from core.control import VehicleMode, connect, ConnectionType
 from swarm.swarm_core import (
     arm_no_RC, 
     takeoff_and_hover, 
@@ -18,10 +18,8 @@ def main():
     atexit.register(exit_handler)
     
     drone = connect(ConnectionType.udp, "127.0.0.1", 14551)
-    # arm_no_RC(drone)
-    # takeoff_and_hover(drone, 20)
-    while True:
-        time.sleep(1)
+    arm_no_RC(drone)
+    takeoff_and_hover(drone, 20) 
     
     
     '''
